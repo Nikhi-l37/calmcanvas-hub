@@ -420,7 +420,7 @@ const Index = () => {
 
       {/* Break Overlay */}
       <BreakOverlay
-        activity={currentBreakActivity!}
+        activity={currentBreakActivity}
         onComplete={handleBreakComplete}
         isVisible={showBreak}
       />

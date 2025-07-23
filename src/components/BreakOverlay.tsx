@@ -6,15 +6,16 @@ import { Card } from '@/components/ui/card';
 import { BreakActivity } from '@/types';
 
 interface BreakOverlayProps {
-  activity: BreakActivity;
+  activity: BreakActivity | null;
   onComplete: () => void;
   isVisible: boolean;
 }
 
 export const BreakOverlay = ({ activity, onComplete, isVisible }: BreakOverlayProps) => {
+  // Early return if no activity or not visible
+  if (!isVisible || !activity) return null;
+  
   const IconComponent = Icons[activity.icon as keyof typeof Icons] as LucideIcon;
-
-  if (!isVisible) return null;
 
   return (
     <motion.div
