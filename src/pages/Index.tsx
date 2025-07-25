@@ -14,6 +14,7 @@ import { InstallPWAButton } from '@/components/InstallPWAButton';
 import { TimerDisplay } from '@/components/TimerDisplay';
 import { BreakOverlay } from '@/components/BreakOverlay';
 import { StatsOverview } from '@/components/StatsOverview';
+import { NotificationPermission } from '@/components/NotificationPermission';
 import { defaultApps, availableIcons, availableColors } from '@/data/defaultApps';
 import { breakActivities } from '@/data/breakActivities';
 import { App, UserStats, BreakActivity, TimerSession } from '@/types';
@@ -34,6 +35,7 @@ const Index = () => {
   const [showBreak, setShowBreak] = useState(false);
   const [currentBreakActivity, setCurrentBreakActivity] = useState<BreakActivity | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [newApp, setNewApp] = useState({
     name: '',
     url: '',
@@ -43,7 +45,18 @@ const Index = () => {
   });
 
   const { toast } = useToast();
-  const { requestPermission, sendNotification, canSend } = useNotifications();
+  const { requestPermission, sendNotification, canSend, permission } = useNotifications();
+
+  // Check notification permission on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (permission === 'default') {
+        setShowNotificationPrompt(true);
+      }
+    }, 2000); // Show after 2 seconds
+    
+    return () => clearTimeout(timer);
+  }, [permission]);
 
   // Timer logic
   useEffect(() => {
@@ -66,15 +79,11 @@ const Index = () => {
   }, [isTimerRunning, timeRemaining]);
 
   const launchApp = useCallback(async (app: App) => {
-    if (!canSend) {
+    // Request notification permission if not granted
+    if (!canSend && permission === 'default') {
       const granted = await requestPermission();
       if (!granted) {
-        toast({
-          title: "Notifications Required",
-          description: "Please enable notifications to get break reminders.",
-          variant: "destructive"
-        });
-        return;
+        setShowNotificationPrompt(true);
       }
     }
 
@@ -423,6 +432,14 @@ const Index = () => {
         activity={currentBreakActivity}
         onComplete={handleBreakComplete}
         isVisible={showBreak}
+      />
+
+      {/* Notification Permission */}
+      <NotificationPermission
+        permission={permission}
+        onRequestPermission={requestPermission}
+        onDismiss={() => setShowNotificationPrompt(false)}
+        isVisible={showNotificationPrompt}
       />
     </div>
   );
