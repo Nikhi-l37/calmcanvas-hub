@@ -27,6 +27,8 @@ export interface UserSettings {
   soundEnabled: boolean;
   parentalControls: boolean;
   theme: 'light' | 'dark' | 'auto';
+  weeklyReductionTarget: number;
+  breakFrequency: number;
 }
 
 export interface UserStats {
@@ -35,6 +37,9 @@ export interface UserStats {
   breaksToday: number;
   streak: number;
   achievements: Achievement[];
+  weeklyProgress: number[];
+  lastMotivationalMessage?: string;
+  goalsMet: boolean;
 }
 
 export interface Achievement {

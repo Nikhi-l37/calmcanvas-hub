@@ -15,8 +15,12 @@ import { TimerDisplay } from '@/components/TimerDisplay';
 import { BreakOverlay } from '@/components/BreakOverlay';
 import { StatsOverview } from '@/components/StatsOverview';
 import { NotificationPermission } from '@/components/NotificationPermission';
+import { MotivationEngine } from '@/components/MotivationEngine';
+import { ProgressTracker } from '@/components/ProgressTracker';
+import { GoalSetting } from '@/components/GoalSetting';
 import { defaultApps, availableIcons, availableColors } from '@/data/defaultApps';
 import { breakActivities } from '@/data/breakActivities';
+import { getMotivationalMessage, getDailyTip, MotivationalMessage } from '@/data/motivationalContent';
 import { App, UserStats, BreakActivity, TimerSession } from '@/types';
 
 const Index = () => {
@@ -26,7 +30,15 @@ const Index = () => {
     appsUsedToday: 0,
     breaksToday: 0,
     streak: 0,
-    achievements: []
+    achievements: [],
+    weeklyProgress: [],
+    goalsMet: false
+  });
+  
+  const [goals, setGoals] = useLocalStorage('screenTimeGoals', {
+    dailyLimit: 90, // 90 minutes default
+    weeklyTarget: 15, // 15% reduction
+    breakFrequency: 25 // every 25 minutes
   });
   
   const [currentTimer, setCurrentTimer] = useState<TimerSession | null>(null);
@@ -36,6 +48,8 @@ const Index = () => {
   const [currentBreakActivity, setCurrentBreakActivity] = useState<BreakActivity | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [motivationalMessage, setMotivationalMessage] = useState<MotivationalMessage | null>(null);
+  const [showMotivation, setShowMotivation] = useState(false);
   const [newApp, setNewApp] = useState({
     name: '',
     url: '',
@@ -103,10 +117,23 @@ const Index = () => {
     setIsTimerRunning(true);
 
     // Update app usage stats
-    setStats(prev => ({
-      ...prev,
-      appsUsedToday: prev.appsUsedToday + 1
-    }));
+    setStats(prev => {
+      const newStats = {
+        ...prev,
+        appsUsedToday: prev.appsUsedToday + 1
+      };
+      
+      // Show daily tip on first app launch
+      if (prev.appsUsedToday === 0) {
+        const tip = getDailyTip();
+        setTimeout(() => {
+          setMotivationalMessage(tip);
+          setShowMotivation(true);
+        }, 3000);
+      }
+      
+      return newStats;
+    });
 
     // Update app status
     setApps(prev => prev.map(a => ({
@@ -133,12 +160,41 @@ const Index = () => {
     });
 
     // Update stats
-    setStats(prev => ({
-      ...prev,
-      breaksToday: prev.breaksToday + 1,
-      totalTimeToday: prev.totalTimeToday + (currentTimer?.duration || 0)
-    }));
-  }, [sendNotification, setStats, currentTimer]);
+    setStats(prev => {
+      const newTotalTime = prev.totalTimeToday + (currentTimer?.duration || 0);
+      const newStats = {
+        ...prev,
+        breaksToday: prev.breaksToday + 1,
+        totalTimeToday: newTotalTime
+      };
+
+      // Check for achievements and show motivational messages
+      const dailyGoalMet = Math.round(newTotalTime / 60) <= goals.dailyLimit;
+      if (dailyGoalMet && !prev.goalsMet) {
+        const message = getMotivationalMessage('goal_achieved');
+        if (message) {
+          setTimeout(() => {
+            setMotivationalMessage(message);
+            setShowMotivation(true);
+          }, 2000);
+        }
+        newStats.goalsMet = true;
+      }
+
+      // Check for streak milestones
+      if (prev.streak > 0 && [3, 7, 14, 30].includes(prev.streak)) {
+        const message = getMotivationalMessage('streak', { streak: prev.streak });
+        if (message) {
+          setTimeout(() => {
+            setMotivationalMessage(message);
+            setShowMotivation(true);
+          }, 1500);
+        }
+      }
+
+      return newStats;
+    });
+  }, [sendNotification, setStats, currentTimer, goals.dailyLimit]);
 
   const handleBreakComplete = useCallback(() => {
     setShowBreak(false);
@@ -255,6 +311,20 @@ const Index = () => {
 
         {/* Stats Overview */}
         <StatsOverview stats={stats} />
+
+        {/* Progress and Goals Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <ProgressTracker 
+            stats={stats} 
+            dailyGoal={goals.dailyLimit}
+            weeklyProgress={stats.weeklyProgress}
+          />
+          <GoalSetting
+            currentGoals={goals}
+            onUpdateGoals={setGoals}
+            currentUsage={Math.round(stats.totalTimeToday / 60) || 60}
+          />
+        </div>
 
         {/* Main Content */}
         <AnimatePresence mode="wait">
@@ -440,6 +510,16 @@ const Index = () => {
         onRequestPermission={requestPermission}
         onDismiss={() => setShowNotificationPrompt(false)}
         isVisible={showNotificationPrompt}
+      />
+
+      {/* Motivation Engine */}
+      <MotivationEngine
+        message={motivationalMessage}
+        onDismiss={() => {
+          setShowMotivation(false);
+          setMotivationalMessage(null);
+        }}
+        isVisible={showMotivation}
       />
     </div>
   );
