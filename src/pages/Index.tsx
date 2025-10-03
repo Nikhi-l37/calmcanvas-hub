@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Plus, X, Save } from 'lucide-react';
+import { Settings, Plus, X, Save, LogOut, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,8 @@ import { getMotivationalMessage, getDailyTip, MotivationalMessage } from '@/data
 import { App, UserStats, BreakActivity, TimerSession } from '@/types';
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading, signOut } = useAuth();
   const [apps, setApps] = useLocalStorage<App[]>('screenCoachApps', defaultApps);
   const [stats, setStats] = useLocalStorage<UserStats>('userStats', {
     totalTimeToday: 0,
@@ -62,6 +66,32 @@ const Index = () => {
 
   const { toast } = useToast();
   const { requestPermission, sendNotification, canSend, permission } = useNotifications();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  // Exit notification
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (user) {
+        const message = 'Remember to take breaks! Come back soon for better screen habits.';
+        e.preventDefault();
+        e.returnValue = message;
+        sendNotification('Screen Coach', {
+          body: message,
+          tag: 'exit-reminder'
+        });
+        return message;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [user, sendNotification]);
 
   // Check notification permission on mount
   useEffect(() => {
@@ -223,7 +253,25 @@ const Index = () => {
     toast({ title: "Timer stopped", description: "Session ended early." });
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: 'Signed out',
+      description: 'You have been signed out successfully.',
+    });
+    navigate('/auth');
+  };
+
   const addNewApp = () => {
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to add apps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     if (!newApp.name || !newApp.url) {
       toast({
         title: "Missing information",
@@ -274,6 +322,15 @@ const Index = () => {
   };
 
   const removeApp = (id: number) => {
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to delete apps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setApps(prev => prev.filter(app => app.id !== id));
     toast({
       title: "App removed",
@@ -282,10 +339,31 @@ const Index = () => {
   };
 
   const updateAppTimeLimit = (id: number, timeLimit: number) => {
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to modify apps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setApps(prev => prev.map(app => 
       app.id === id ? { ...app, timeLimit } : app
     ));
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -305,14 +383,19 @@ const Index = () => {
             Smart screen time management • Works as Website & App
           </p>
           
-          <Button
-            onClick={() => setShowSettings(!showSettings)}
-            variant="outline"
-            className="absolute top-0 right-0"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Manage Apps
-          </Button>
+          <div className="absolute top-0 right-0 flex gap-2">
+            <Button
+              onClick={() => setShowSettings(!showSettings)}
+              variant="outline"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Manage Apps
+            </Button>
+            <Button onClick={handleSignOut} variant="outline">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </motion.header>
 
         {/* Stats Overview */}
