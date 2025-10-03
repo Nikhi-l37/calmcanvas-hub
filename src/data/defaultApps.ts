@@ -78,7 +78,9 @@ export const defaultApps: App[] = [
 export const availableIcons = [
   'GraduationCap', 'Code', 'Gamepad2', 'Globe', 'Tv', 'Wand2', 'Box', 'Languages',
   'BookOpen', 'Paintbrush', 'Music', 'Camera', 'Calculator', 'Atom', 'Telescope',
-  'Microscope', 'Palette', 'Puzzle', 'Target', 'Trophy'
+  'Microscope', 'Palette', 'Puzzle', 'Target', 'Trophy', 'Smartphone', 'MessageCircle',
+  'Youtube', 'Instagram', 'Facebook', 'Twitter', 'Twitch', 'Linkedin', 'Github',
+  'Mail', 'Phone', 'Video', 'Film', 'Headphones', 'Radio', 'Newspaper'
 ];
 
 export const availableColors = {

@@ -18,6 +18,8 @@ import { NotificationPermission } from '@/components/NotificationPermission';
 import { MotivationEngine } from '@/components/MotivationEngine';
 import { ProgressTracker } from '@/components/ProgressTracker';
 import { GoalSetting } from '@/components/GoalSetting';
+import { AddAppDialog } from '@/components/AddAppDialog';
+import { AppManager } from '@/components/AppManager';
 import { defaultApps, availableIcons, availableColors } from '@/data/defaultApps';
 import { breakActivities } from '@/data/breakActivities';
 import { getMotivationalMessage, getDailyTip, MotivationalMessage } from '@/data/motivationalContent';
@@ -267,6 +269,10 @@ const Index = () => {
     });
   };
 
+  const handleAddApp = (newApp: App) => {
+    setApps(prev => [...prev, newApp]);
+  };
+
   const removeApp = (id: number) => {
     setApps(prev => prev.filter(app => app.id !== id));
     toast({
@@ -296,7 +302,7 @@ const Index = () => {
             Screen Coach Hub
           </h1>
           <p className="text-xl text-muted-foreground mb-8">
-            Smart screen time management for healthy digital habits
+            Smart screen time management • Works as Website & App
           </p>
           
           <Button
@@ -451,17 +457,31 @@ const Index = () => {
               exit={{ opacity: 0, x: 20 }}
             >
               {/* App Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {apps.map((app, index) => (
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {apps.map((app, index) => (
+                    <motion.div
+                      key={app.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <AppCard app={app} onLaunch={launchApp} />
+                    </motion.div>
+                  ))}
+                  
+                  {/* Add App Button */}
                   <motion.div
-                    key={app.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: apps.length * 0.1 }}
                   >
-                    <AppCard app={app} onLaunch={launchApp} />
+                    <AddAppDialog onAddApp={handleAddApp} existingApps={apps} />
                   </motion.div>
-                ))}
+                </div>
+
+                {/* App Manager - Shows custom apps list with delete option */}
+                <AppManager apps={apps} onDeleteApp={removeApp} />
               </div>
 
               {apps.length === 0 && (
