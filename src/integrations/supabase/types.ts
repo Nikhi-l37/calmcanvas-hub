@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_sessions: {
+        Row: {
+          app_id: number
+          app_name: string
+          created_at: string
+          duration_seconds: number | null
+          end_time: string | null
+          id: string
+          start_time: string
+          user_id: string
+        }
+        Insert: {
+          app_id: number
+          app_name: string
+          created_at?: string
+          duration_seconds?: number | null
+          end_time?: string | null
+          id?: string
+          start_time?: string
+          user_id: string
+        }
+        Update: {
+          app_id?: number
+          app_name?: string
+          created_at?: string
+          duration_seconds?: number | null
+          end_time?: string | null
+          id?: string
+          start_time?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      breaks: {
+        Row: {
+          activity_type: string | null
+          break_time: string
+          created_at: string
+          duration_seconds: number
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activity_type?: string | null
+          break_time?: string
+          created_at?: string
+          duration_seconds: number
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: string | null
+          break_time?: string
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_stats: {
+        Row: {
+          apps_used: number
+          breaks_taken: number
+          created_at: string
+          date: string
+          id: string
+          total_time_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          apps_used?: number
+          breaks_taken?: number
+          created_at?: string
+          date?: string
+          id?: string
+          total_time_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          apps_used?: number
+          breaks_taken?: number
+          created_at?: string
+          date?: string
+          id?: string
+          total_time_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -32,6 +125,36 @@ export type Database = {
           email?: string
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_activity_date: string
+          longest_streak: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_activity_date?: string
+          longest_streak?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_activity_date?: string
+          longest_streak?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

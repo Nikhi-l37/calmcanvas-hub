@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Plus, X, Save, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useStats } from '@/hooks/useStats';
+import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { Button } from '@/components/ui/button';
 import { PasswordConfirmDialog } from '@/components/PasswordConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,16 +34,9 @@ import { App, UserStats, BreakActivity, TimerSession } from '@/types';
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading, signOut } = useAuth();
+  const { stats, loading: statsLoading } = useStats(user?.id);
+  const { startSession, endSession, recordBreak } = useSessionTracking(user?.id);
   const [apps, setApps] = useLocalStorage<App[]>('screenCoachApps', defaultApps);
-  const [stats, setStats] = useLocalStorage<UserStats>('userStats', {
-    totalTimeToday: 0,
-    appsUsedToday: 0,
-    breaksToday: 0,
-    streak: 0,
-    achievements: [],
-    weeklyProgress: [],
-    goalsMet: false
-  });
   
   const [goals, setGoals] = useLocalStorage('screenTimeGoals', {
     dailyLimit: 90, // 90 minutes default
@@ -161,24 +156,17 @@ const Index = () => {
     setTimeRemaining(session.duration);
     setIsTimerRunning(true);
 
-    // Update app usage stats
-    setStats(prev => {
-      const newStats = {
-        ...prev,
-        appsUsedToday: prev.appsUsedToday + 1
-      };
-      
-      // Show daily tip on first app launch
-      if (prev.appsUsedToday === 0) {
-        const tip = getDailyTip();
-        setTimeout(() => {
-          setMotivationalMessage(tip);
-          setShowMotivation(true);
-        }, 3000);
-      }
-      
-      return newStats;
-    });
+    // Start session tracking in database
+    startSession(app.id, app.name);
+
+    // Show daily tip on first app launch
+    if (stats.appsUsedToday === 0) {
+      const tip = getDailyTip();
+      setTimeout(() => {
+        setMotivationalMessage(tip);
+        setShowMotivation(true);
+      }, 3000);
+    }
 
     // Update app status
     setApps(prev => prev.map(a => ({
@@ -191,12 +179,15 @@ const Index = () => {
       title: `Launched ${app.name}`,
       description: `Timer set for ${app.timeLimit} minutes. Enjoy!`
     });
-  }, [canSend, requestPermission, toast, setStats, setApps]);
+  }, [canSend, requestPermission, toast, startSession, stats.appsUsedToday, setApps]);
 
   const triggerBreakTime = useCallback(() => {
     const randomActivity = breakActivities[Math.floor(Math.random() * breakActivities.length)];
     setCurrentBreakActivity(randomActivity);
     setShowBreak(true);
+
+    // End current session in database
+    endSession();
 
     // Send notification
     sendNotification('Break Time!', {
@@ -204,45 +195,38 @@ const Index = () => {
       tag: 'break-time'
     });
 
-    // Update stats
-    setStats(prev => {
-      const newTotalTime = prev.totalTimeToday + (currentTimer?.duration || 0);
-      const newStats = {
-        ...prev,
-        breaksToday: prev.breaksToday + 1,
-        totalTimeToday: newTotalTime
-      };
-
-      // Check for achievements and show motivational messages
-      const dailyGoalMet = Math.round(newTotalTime / 60) <= goals.dailyLimit;
-      if (dailyGoalMet && !prev.goalsMet) {
-        const message = getMotivationalMessage('goal_achieved');
-        if (message) {
-          setTimeout(() => {
-            setMotivationalMessage(message);
-            setShowMotivation(true);
-          }, 2000);
-        }
-        newStats.goalsMet = true;
+    // Check for achievements and show motivational messages
+    const dailyGoalMet = Math.round(stats.totalTimeToday / 60) <= goals.dailyLimit;
+    if (dailyGoalMet) {
+      const message = getMotivationalMessage('goal_achieved');
+      if (message) {
+        setTimeout(() => {
+          setMotivationalMessage(message);
+          setShowMotivation(true);
+        }, 2000);
       }
+    }
 
-      // Check for streak milestones
-      if (prev.streak > 0 && [3, 7, 14, 30].includes(prev.streak)) {
-        const message = getMotivationalMessage('streak', { streak: prev.streak });
-        if (message) {
-          setTimeout(() => {
-            setMotivationalMessage(message);
-            setShowMotivation(true);
-          }, 1500);
-        }
+    // Check for streak milestones
+    if (stats.streak > 0 && [3, 7, 14, 30].includes(stats.streak)) {
+      const message = getMotivationalMessage('streak', { streak: stats.streak });
+      if (message) {
+        setTimeout(() => {
+          setMotivationalMessage(message);
+          setShowMotivation(true);
+        }, 1500);
       }
-
-      return newStats;
-    });
-  }, [sendNotification, setStats, currentTimer, goals.dailyLimit]);
+    }
+  }, [sendNotification, endSession, stats.totalTimeToday, stats.streak, goals.dailyLimit]);
 
   const handleBreakComplete = useCallback(() => {
     setShowBreak(false);
+    
+    // Record break in database
+    if (currentBreakActivity) {
+      recordBreak(currentBreakActivity.duration * 60, currentBreakActivity.type);
+    }
+    
     setCurrentBreakActivity(null);
     setCurrentTimer(null);
     setTimeRemaining(0);
@@ -436,19 +420,26 @@ const Index = () => {
         </motion.header>
 
         {/* Stats Overview */}
-        <StatsOverview stats={stats} />
+        <StatsOverview 
+          totalTimeToday={stats.totalTimeToday}
+          appsUsedToday={stats.appsUsedToday}
+          breaksToday={stats.breaksToday}
+          streak={stats.streak}
+        />
 
         {/* Progress and Goals Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <ProgressTracker 
-            stats={stats} 
+            totalTimeToday={stats.totalTimeToday}
+            breaksToday={stats.breaksToday}
+            streak={stats.streak}
             dailyGoal={goals.dailyLimit}
             weeklyProgress={stats.weeklyProgress}
           />
           <GoalSetting
             currentGoals={goals}
             onUpdateGoals={setGoals}
-            currentUsage={Math.round(stats.totalTimeToday / 60) || 60}
+            currentUsage={Math.round(stats.totalTimeToday / 60)}
           />
         </div>
 
