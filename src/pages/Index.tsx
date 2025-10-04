@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Plus, X, Save, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { PasswordConfirmDialog } from '@/components/PasswordConfirmDialog';
+import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +65,11 @@ const Index = () => {
     icon: 'Globe',
     color: 'bg-blue-500'
   });
+  const [passwordDialog, setPasswordDialog] = useState<{
+    isOpen: boolean;
+    action: 'add' | 'delete' | null;
+    data?: any;
+  }>({ isOpen: false, action: null });
 
   const { toast } = useToast();
   const { requestPermission, sendNotification, canSend, permission } = useNotifications();
@@ -77,14 +84,25 @@ const Index = () => {
   // Exit notification
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (user) {
+      if (user?.email) {
         const message = 'Remember to take breaks! Come back soon for better screen habits.';
         e.preventDefault();
         e.returnValue = message;
+        
+        // Send browser notification
         sendNotification('Screen Coach', {
           body: message,
           tag: 'exit-reminder'
         });
+
+        // Send email notification
+        supabase.functions.invoke('send-exit-notification', {
+          body: {
+            email: user.email,
+            timestamp: new Date().toISOString(),
+          },
+        }).catch(error => console.error('Failed to send exit email:', error));
+        
         return message;
       }
     };
@@ -302,6 +320,18 @@ const Index = () => {
       category: 'other'
     };
 
+    // Open password confirmation dialog
+    setPasswordDialog({
+      isOpen: true,
+      action: 'add',
+      data: app,
+    });
+  };
+
+  const confirmAddApp = () => {
+    if (!passwordDialog.data) return;
+
+    const app = passwordDialog.data;
     setApps(prev => [...prev, app]);
     setNewApp({
       name: '',
@@ -331,6 +361,18 @@ const Index = () => {
       return;
     }
     
+    // Open password confirmation dialog
+    setPasswordDialog({
+      isOpen: true,
+      action: 'delete',
+      data: id,
+    });
+  };
+
+  const confirmDeleteApp = () => {
+    if (passwordDialog.data === undefined) return;
+
+    const id = passwordDialog.data;
     setApps(prev => prev.filter(app => app.id !== id));
     toast({
       title: "App removed",
@@ -623,6 +665,20 @@ const Index = () => {
           setMotivationalMessage(null);
         }}
         isVisible={showMotivation}
+      />
+
+      {/* Password Confirmation Dialog */}
+      <PasswordConfirmDialog
+        isOpen={passwordDialog.isOpen}
+        onClose={() => setPasswordDialog({ isOpen: false, action: null })}
+        onConfirm={passwordDialog.action === 'add' ? confirmAddApp : confirmDeleteApp}
+        title={passwordDialog.action === 'add' ? 'Confirm Add App' : 'Confirm Delete App'}
+        description={
+          passwordDialog.action === 'add'
+            ? 'Please enter your password to add this app.'
+            : 'Please enter your password to delete this app.'
+        }
+        userEmail={user?.email || ''}
       />
     </div>
   );
