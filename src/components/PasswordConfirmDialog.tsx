@@ -46,30 +46,30 @@ export const PasswordConfirmDialog = ({
 
     setIsVerifying(true);
     try {
-      // Re-authenticate the user with their password
-      const { error } = await supabase.auth.signInWithPassword({
+      // Verify password by attempting sign-in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: userEmail,
         password: password,
       });
 
-      if (error) {
+      if (signInError) {
         toast({
-          title: 'Authentication Failed',
-          description: 'Incorrect password. Please try again.',
+          title: 'Incorrect Password',
+          description: 'The password you entered is incorrect. Please try again.',
           variant: 'destructive',
         });
-        setIsVerifying(false);
         return;
       }
 
-      // If authentication successful, proceed with the action
+      // Password verified successfully, proceed with the action
       onConfirm();
       setPassword('');
       onClose();
     } catch (error) {
+      console.error('Password verification error:', error);
       toast({
-        title: 'Error',
-        description: 'An error occurred. Please try again.',
+        title: 'Verification Error',
+        description: 'An error occurred while verifying your password. Please try again.',
         variant: 'destructive',
       });
     } finally {

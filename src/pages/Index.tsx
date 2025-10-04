@@ -81,35 +81,30 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-  // Exit notification
+  // Exit notification - send email only
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (user?.email) {
-        const message = 'Remember to take breaks! Come back soon for better screen habits.';
-        e.preventDefault();
-        e.returnValue = message;
-        
-        // Send browser notification
-        sendNotification('Screen Coach', {
-          body: message,
-          tag: 'exit-reminder'
-        });
+    let exitNotificationSent = false;
 
-        // Send email notification
-        supabase.functions.invoke('send-exit-notification', {
-          body: {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (user?.email && !exitNotificationSent) {
+        exitNotificationSent = true;
+        
+        // Send email notification asynchronously without blocking
+        navigator.sendBeacon(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
+          JSON.stringify({
             email: user.email,
             timestamp: new Date().toISOString(),
-          },
-        }).catch(error => console.error('Failed to send exit email:', error));
-        
-        return message;
+          })
+        );
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, sendNotification]);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
 
   // Check notification permission on mount
   useEffect(() => {

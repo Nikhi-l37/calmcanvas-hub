@@ -120,23 +120,26 @@ export default function Auth() {
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: `${window.location.origin}/`,
     });
 
     setLoading(false);
 
     if (error) {
       toast({
-        title: 'Reset failed',
+        title: 'Reset Failed',
         description: error.message,
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Check your email',
-        description: 'We sent you a password reset link.',
+        title: 'Email Sent!',
+        description: 'Check your inbox for the password reset link. The link will expire in 1 hour.',
+        duration: 6000,
       });
       setResetMode(false);
+      setEmail('');
+      setPassword('');
     }
   };
 
