@@ -76,22 +76,30 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-  // Exit notification - send email only
+  // Exit notification - send email when user exits
   useEffect(() => {
     let exitNotificationSent = false;
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    const handleBeforeUnload = () => {
       if (user?.email && !exitNotificationSent) {
         exitNotificationSent = true;
         
-        // Send email notification asynchronously without blocking
-        navigator.sendBeacon(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
-          JSON.stringify({
+        // Create a Blob with proper JSON content type for sendBeacon
+        const blob = new Blob(
+          [JSON.stringify({
             email: user.email,
             timestamp: new Date().toISOString(),
-          })
+          })],
+          { type: 'application/json' }
         );
+        
+        // Send email notification using sendBeacon for reliability
+        const sent = navigator.sendBeacon(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
+          blob
+        );
+        
+        console.log('Exit notification sent:', sent);
       }
     };
 
