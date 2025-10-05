@@ -76,35 +76,57 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-  // Exit notification - send email when user exits
+  // Exit notification - send email when user exits (using Visibility API for reliability)
   useEffect(() => {
     let exitNotificationSent = false;
 
-    const handleBeforeUnload = () => {
+    const sendExitNotification = async () => {
       if (user?.email && !exitNotificationSent) {
         exitNotificationSent = true;
         
-        // Create a Blob with proper JSON content type for sendBeacon
-        const blob = new Blob(
-          [JSON.stringify({
-            email: user.email,
-            timestamp: new Date().toISOString(),
-          })],
-          { type: 'application/json' }
-        );
+        console.log('Sending exit notification to:', user.email);
         
-        // Send email notification using sendBeacon for reliability
-        const sent = navigator.sendBeacon(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
-          blob
-        );
-        
-        console.log('Exit notification sent:', sent);
+        try {
+          // Use fetch with keepalive for better reliability
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: user.email,
+                timestamp: new Date().toISOString(),
+              }),
+              keepalive: true, // Ensures request continues even if page unloads
+            }
+          );
+          
+          console.log('Exit notification response:', response.status);
+        } catch (error) {
+          console.error('Failed to send exit notification:', error);
+        }
       }
     };
 
+    // Use Visibility API - more reliable than beforeunload
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendExitNotification();
+      }
+    };
+
+    // Fallback for page unload
+    const handleBeforeUnload = () => {
+      sendExitNotification();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [user]);
