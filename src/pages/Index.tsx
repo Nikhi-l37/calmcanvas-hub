@@ -20,6 +20,7 @@ import { InstallPWAButton } from '@/components/InstallPWAButton';
 import { TimerDisplay } from '@/components/TimerDisplay';
 import { BreakOverlay } from '@/components/BreakOverlay';
 import { StatsOverview } from '@/components/StatsOverview';
+import { DailyComparison } from '@/components/DailyComparison';
 import { NotificationPermission } from '@/components/NotificationPermission';
 import { MotivationEngine } from '@/components/MotivationEngine';
 import { ProgressTracker } from '@/components/ProgressTracker';
@@ -456,6 +457,14 @@ const Index = () => {
           breaksToday={stats.breaksToday}
           streak={stats.streak}
         />
+
+        {/* Daily Comparison */}
+        <div className="mb-6">
+          <DailyComparison 
+            totalTimeToday={stats.totalTimeToday}
+            totalTimeYesterday={stats.totalTimeYesterday}
+          />
+        </div>
 
         {/* Progress and Goals Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

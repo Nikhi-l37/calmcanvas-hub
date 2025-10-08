@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "resend": "npm:resend@2.0.0"
+  }
+}

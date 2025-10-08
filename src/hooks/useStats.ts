@@ -6,6 +6,9 @@ export interface UserStats {
   totalTimeToday: number;
   appsUsedToday: number;
   breaksToday: number;
+  totalTimeYesterday: number;
+  appsUsedYesterday: number;
+  breaksYesterday: number;
   streak: number;
   weeklyProgress: number[];
 }
@@ -15,6 +18,9 @@ export const useStats = (userId: string | undefined) => {
     totalTimeToday: 0,
     appsUsedToday: 0,
     breaksToday: 0,
+    totalTimeYesterday: 0,
+    appsUsedYesterday: 0,
+    breaksYesterday: 0,
     streak: 0,
     weeklyProgress: [0, 0, 0, 0, 0, 0, 0],
   });
@@ -27,6 +33,9 @@ export const useStats = (userId: string | undefined) => {
     const fetchStats = async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
 
         // Fetch today's stats
         const { data: dailyStats } = await supabase
@@ -34,6 +43,14 @@ export const useStats = (userId: string | undefined) => {
           .select('*')
           .eq('user_id', userId)
           .eq('date', today)
+          .maybeSingle();
+
+        // Fetch yesterday's stats
+        const { data: yesterdayStats } = await supabase
+          .from('daily_stats')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('date', yesterdayStr)
           .maybeSingle();
 
         // Fetch streak
@@ -62,6 +79,9 @@ export const useStats = (userId: string | undefined) => {
           totalTimeToday: dailyStats?.total_time_seconds || 0,
           appsUsedToday: dailyStats?.apps_used || 0,
           breaksToday: dailyStats?.breaks_taken || 0,
+          totalTimeYesterday: yesterdayStats?.total_time_seconds || 0,
+          appsUsedYesterday: yesterdayStats?.apps_used || 0,
+          breaksYesterday: yesterdayStats?.breaks_taken || 0,
           streak: streakData?.current_streak || 0,
           weeklyProgress: weeklyProgress.slice(-7),
         });
