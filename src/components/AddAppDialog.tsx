@@ -29,7 +29,7 @@ interface AddAppDialogProps {
 }
 
 export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     url: '',
@@ -64,38 +64,13 @@ export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
     };
 
     onAddApp(newApp);
-    toast({
-      title: 'App added!',
-      description: `${formData.name} has been added to your apps.`,
-    });
-
-    // Reset form
-    setFormData({
-      name: '',
-      url: '',
-      icon: 'Smartphone',
-      color: 'bg-blue-500',
-      timeLimit: 30,
-      category: 'entertainment',
-    });
-    setOpen(false);
+    setIsOpen(false);
   };
 
   const IconComponent = Icons[formData.icon as keyof typeof Icons] as any;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="w-full border-dashed border-2 h-auto aspect-square rounded-2xl hover:border-primary/50 hover:bg-primary/5"
-        >
-          <div className="flex flex-col items-center gap-2 p-6">
-            <Plus className="w-12 h-12 text-muted-foreground" />
-            <span className="text-sm font-medium">Add App</span>
-          </div>
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add New App</DialogTitle>
@@ -221,7 +196,7 @@ export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" className="flex-1">
