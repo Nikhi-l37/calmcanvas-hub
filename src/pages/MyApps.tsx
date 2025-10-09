@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,8 +41,20 @@ export const MyApps = () => {
   const { toast } = useToast();
   const { requestPermission, sendNotification, canSend, permission } = useNotifications();
 
+  const triggerBreakTime = useCallback(() => {
+    const randomActivity = breakActivities[Math.floor(Math.random() * breakActivities.length)];
+    setCurrentBreakActivity(randomActivity);
+    setShowBreak(true);
+    endSession();
+
+    sendNotification('Break Time!', {
+      body: `Time's up! Take a quick break.`,
+      tag: 'break-time'
+    });
+  }, [sendNotification, endSession]);
+
   // Timer logic
-  useState(() => {
+  useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (isTimerRunning && timeRemaining > 0) {
@@ -59,7 +71,7 @@ export const MyApps = () => {
     }
 
     return () => clearInterval(interval);
-  });
+  }, [isTimerRunning, timeRemaining, triggerBreakTime]);
 
   const launchApp = useCallback(async (app: App) => {
     if (!canSend && permission === 'default') {
@@ -92,18 +104,6 @@ export const MyApps = () => {
     });
   }, [canSend, requestPermission, toast, startSession, setApps]);
 
-  const triggerBreakTime = useCallback(() => {
-    const randomActivity = breakActivities[Math.floor(Math.random() * breakActivities.length)];
-    setCurrentBreakActivity(randomActivity);
-    setShowBreak(true);
-    endSession();
-
-    sendNotification('Break Time!', {
-      body: `Time's up! Take a quick break.`,
-      tag: 'break-time'
-    });
-  }, [sendNotification, endSession]);
-
   const handleBreakComplete = useCallback(() => {
     setShowBreak(false);
     
@@ -126,6 +126,7 @@ export const MyApps = () => {
   const resumeTimer = () => setIsTimerRunning(true);
   const stopTimer = () => {
     setIsTimerRunning(false);
+    endSession();
     setCurrentTimer(null);
     setTimeRemaining(0);
     setApps(prev => prev.map(app => ({ ...app, isActive: false })));
