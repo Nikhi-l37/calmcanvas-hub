@@ -210,6 +210,7 @@ export const MyApps = () => {
             key={app.id}
             app={app}
             onLaunch={launchApp}
+            onDelete={removeApp}
           />
         ))}
       </div>
