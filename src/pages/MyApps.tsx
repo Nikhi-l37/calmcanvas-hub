@@ -1,77 +1,30 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useStats } from '@/hooks/useStats';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useNotifications } from '@/hooks/useNotifications';
 import { AppCard } from '@/components/AppCard';
-import { TimerDisplay } from '@/components/TimerDisplay';
-import { BreakOverlay } from '@/components/BreakOverlay';
 import { PasswordConfirmDialog } from '@/components/PasswordConfirmDialog';
 import { AddAppDialog } from '@/components/AddAppDialog';
 import { defaultApps } from '@/data/defaultApps';
-import { breakActivities } from '@/data/breakActivities';
-import { getMotivationalMessage, getDailyTip } from '@/data/motivationalContent';
-import { App, TimerSession, BreakActivity } from '@/types';
+import { useTimer } from '@/contexts/TimerContext';
+import { App } from '@/types';
 
 export const MyApps = () => {
   const { user, loading } = useAuth();
   const { stats } = useStats(user?.id);
-  const { startSession, endSession, recordBreak } = useSessionTracking(user?.id);
   const [apps, setApps] = useLocalStorage<App[]>('screenCoachApps', defaultApps);
-  const [goals] = useLocalStorage('screenTimeGoals', {
-    dailyLimit: 90,
-    weeklyTarget: 15,
-    breakFrequency: 25
-  });
-
-  const [currentTimer, setCurrentTimer] = useState<TimerSession | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [showBreak, setShowBreak] = useState(false);
-  const [currentBreakActivity, setCurrentBreakActivity] = useState<BreakActivity | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [appToDelete, setAppToDelete] = useState<number | null>(null);
 
   const { toast } = useToast();
-  const { requestPermission, sendNotification, canSend, permission } = useNotifications();
-
-  const triggerBreakTime = useCallback(() => {
-    const randomActivity = breakActivities[Math.floor(Math.random() * breakActivities.length)];
-    setCurrentBreakActivity(randomActivity);
-    setShowBreak(true);
-    endSession();
-
-    sendNotification('Break Time!', {
-      body: `Time's up! Take a quick break.`,
-      tag: 'break-time'
-    });
-  }, [sendNotification, endSession]);
-
-  // Timer logic
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isTimerRunning && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            setIsTimerRunning(false);
-            triggerBreakTime();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timeRemaining, triggerBreakTime]);
+  const { requestPermission, canSend, permission } = useNotifications();
+  const { startTimer } = useTimer();
 
   const launchApp = useCallback(async (app: App) => {
     if (!canSend && permission === 'default') {
@@ -79,18 +32,7 @@ export const MyApps = () => {
     }
 
     window.open(app.url, '_blank');
-
-    const session: TimerSession = {
-      appId: app.id,
-      startTime: new Date(),
-      duration: app.timeLimit * 60,
-      completed: false
-    };
-
-    setCurrentTimer(session);
-    setTimeRemaining(session.duration);
-    setIsTimerRunning(true);
-    startSession(app.id, app.name);
+    startTimer(app);
 
     setApps(prev => prev.map(a => ({
       ...a,
@@ -102,36 +44,7 @@ export const MyApps = () => {
       title: `Launched ${app.name}`,
       description: `Timer set for ${app.timeLimit} minutes. Enjoy!`
     });
-  }, [canSend, requestPermission, toast, startSession, setApps]);
-
-  const handleBreakComplete = useCallback(() => {
-    setShowBreak(false);
-    
-    if (currentBreakActivity) {
-      recordBreak(currentBreakActivity.duration * 60, currentBreakActivity.type);
-    }
-    
-    setCurrentBreakActivity(null);
-    setCurrentTimer(null);
-    setTimeRemaining(0);
-    setApps(prev => prev.map(app => ({ ...app, isActive: false })));
-
-    toast({
-      title: "Break completed!",
-      description: "Great job taking care of yourself."
-    });
-  }, [currentBreakActivity, recordBreak, setApps, toast]);
-
-  const pauseTimer = () => setIsTimerRunning(false);
-  const resumeTimer = () => setIsTimerRunning(true);
-  const stopTimer = () => {
-    setIsTimerRunning(false);
-    endSession();
-    setCurrentTimer(null);
-    setTimeRemaining(0);
-    setApps(prev => prev.map(app => ({ ...app, isActive: false })));
-    toast({ title: "Timer stopped", description: "Session ended early." });
-  };
+  }, [canSend, requestPermission, toast, startTimer, setApps]);
 
   const handleAddApp = (newApp: App) => {
     setApps(prev => [...prev, newApp]);
@@ -192,18 +105,6 @@ export const MyApps = () => {
         </Button>
       </motion.div>
 
-      {currentTimer && (
-        <TimerDisplay
-          appName={apps.find(a => a.id === currentTimer.appId)?.name || ''}
-          timeRemaining={timeRemaining}
-          totalTime={currentTimer.duration}
-          isRunning={isTimerRunning}
-          onPause={pauseTimer}
-          onResume={resumeTimer}
-          onStop={stopTimer}
-        />
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {apps.map(app => (
           <AppCard
@@ -232,12 +133,6 @@ export const MyApps = () => {
         title="Delete App"
         description="Please enter your password to confirm deleting this app."
         userEmail={user?.email || ''}
-      />
-
-      <BreakOverlay
-        activity={currentBreakActivity}
-        onComplete={handleBreakComplete}
-        isVisible={showBreak}
       />
     </div>
   );
