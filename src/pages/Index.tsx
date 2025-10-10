@@ -303,7 +303,7 @@ const Index = () => {
     if (!newApp.name || !newApp.url) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all the  required fields.",
         variant: "destructive"
       });
       return;
