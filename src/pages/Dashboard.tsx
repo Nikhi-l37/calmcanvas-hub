@@ -4,6 +4,8 @@ import { useStats } from '@/hooks/useStats';
 import { StatsOverview } from '@/components/StatsOverview';
 import { DailyComparison } from '@/components/DailyComparison';
 import { ProgressTracker } from '@/components/ProgressTracker';
+import { AppUsageBreakdown } from '@/components/AppUsageBreakdown';
+import { BreakHistory } from '@/components/BreakHistory';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Loader2 } from 'lucide-react';
 
@@ -45,18 +47,25 @@ export const Dashboard = () => {
         streak={stats.streak}
       />
 
-      <DailyComparison 
-        totalTimeToday={stats.totalTimeToday}
-        totalTimeYesterday={stats.totalTimeYesterday}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DailyComparison 
+          totalTimeToday={stats.totalTimeToday}
+          totalTimeYesterday={stats.totalTimeYesterday}
+        />
 
-      <ProgressTracker 
-        totalTimeToday={stats.totalTimeToday}
-        breaksToday={stats.breaksToday}
-        streak={stats.streak}
-        dailyGoal={goals.dailyLimit}
-        weeklyProgress={stats.weeklyProgress}
-      />
+        <ProgressTracker 
+          totalTimeToday={stats.totalTimeToday}
+          breaksToday={stats.breaksToday}
+          streak={stats.streak}
+          dailyGoal={goals.dailyLimit}
+          weeklyProgress={stats.weeklyProgress}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AppUsageBreakdown />
+        <BreakHistory />
+      </div>
     </div>
   );
 };
