@@ -63,24 +63,35 @@ export const useSessionTracking = (userId: string | undefined) => {
           .eq('date', today)
           .maybeSingle();
 
-        if (existingStats) {
-          await supabase
-            .from('daily_stats')
-            .update({
-              total_time_seconds: existingStats.total_time_seconds + durationSeconds,
-            })
-            .eq('id', existingStats.id);
-        } else {
-          await supabase
-            .from('daily_stats')
-            .insert({
-              user_id: userId,
-              date: today,
-              total_time_seconds: durationSeconds,
-              apps_used: 1,
-              breaks_taken: 0,
-            });
-        }
+      if (existingStats) {
+        // Check if this is a new app for today
+        const { data: todaySessions } = await supabase
+          .from('app_sessions')
+          .select('app_id')
+          .eq('user_id', userId)
+          .gte('start_time', `${today}T00:00:00`)
+          .lt('start_time', `${today}T23:59:59`);
+        
+        const uniqueApps = new Set(todaySessions?.map(s => s.app_id) || []);
+        
+        await supabase
+          .from('daily_stats')
+          .update({
+            total_time_seconds: existingStats.total_time_seconds + durationSeconds,
+            apps_used: uniqueApps.size,
+          })
+          .eq('id', existingStats.id);
+      } else {
+        await supabase
+          .from('daily_stats')
+          .insert({
+            user_id: userId,
+            date: today,
+            total_time_seconds: durationSeconds,
+            apps_used: 1,
+            breaks_taken: 0,
+          });
+      }
 
         // Update streak
         await updateStreak(userId, today);

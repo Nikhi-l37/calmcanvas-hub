@@ -60,20 +60,29 @@ export const useStats = (userId: string | undefined) => {
           .eq('user_id', userId)
           .maybeSingle();
 
-        // Fetch weekly progress (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+        // Fetch weekly progress (last 7 days including today)
+        const dates = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          dates.push(date.toISOString().split('T')[0]);
+        }
+
         const { data: weeklyData } = await supabase
           .from('daily_stats')
           .select('total_time_seconds, date')
           .eq('user_id', userId)
-          .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+          .in('date', dates)
           .order('date', { ascending: true });
 
-        const weeklyProgress = weeklyData?.map(d => Math.round(d.total_time_seconds / 60)) || [];
-        while (weeklyProgress.length < 7) {
-          weeklyProgress.unshift(0);
-        }
+        // Create a map for quick lookup
+        const dataMap = new Map(weeklyData?.map(d => [d.date, d.total_time_seconds]) || []);
+        
+        // Ensure we have data for all 7 days (fill missing days with 0)
+        const weeklyProgress = dates.map(date => {
+          const seconds = dataMap.get(date) || 0;
+          return Math.round(seconds / 60);
+        });
 
         setStats({
           totalTimeToday: dailyStats?.total_time_seconds || 0,

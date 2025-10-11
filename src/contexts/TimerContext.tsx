@@ -92,11 +92,11 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
     setTimeRemaining(0);
   }, [endSession]);
 
-  const completeBreak = useCallback(() => {
+  const completeBreak = useCallback(async () => {
     setShowBreak(false);
     
     if (currentBreakActivity) {
-      recordBreak(currentBreakActivity.duration * 60, currentBreakActivity.type);
+      await recordBreak(currentBreakActivity.duration * 60, currentBreakActivity.type);
     }
     
     setCurrentBreakActivity(null);
