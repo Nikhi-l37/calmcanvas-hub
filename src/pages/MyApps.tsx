@@ -116,12 +116,12 @@ export const MyApps = () => {
         ))}
       </div>
 
-      {showAddDialog && (
-        <AddAppDialog
-          onAddApp={handleAddApp}
-          existingApps={apps}
-        />
-      )}
+      <AddAppDialog
+        isOpen={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onAddApp={handleAddApp}
+        existingApps={apps}
+      />
 
       <PasswordConfirmDialog
         isOpen={showDeleteDialog}

@@ -26,10 +26,21 @@ import { useToast } from '@/hooks/use-toast';
 interface AddAppDialogProps {
   onAddApp: (app: App) => void;
   existingApps: App[];
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
-  const [isOpen, setIsOpen] = useState(true);
+export const AddAppDialog = ({ onAddApp, existingApps, isOpen: externalIsOpen, onOpenChange }: AddAppDialogProps) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(true);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  
+  const handleOpenChange = (open: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(open);
+    } else {
+      setInternalIsOpen(open);
+    }
+  };
   const [formData, setFormData] = useState({
     name: '',
     url: '',
@@ -64,13 +75,13 @@ export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
     };
 
     onAddApp(newApp);
-    setIsOpen(false);
+    handleOpenChange(false);
   };
 
   const IconComponent = Icons[formData.icon as keyof typeof Icons] as any;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add New App</DialogTitle>
@@ -196,7 +207,7 @@ export const AddAppDialog = ({ onAddApp, existingApps }: AddAppDialogProps) => {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" className="flex-1">
