@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+
 import { LucideIcon, Trash2, Play, Pause, Square } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { App } from '@/types';
@@ -53,24 +53,18 @@ export const AppCard = ({ app, onLaunch, onDelete, className }: AppCardProps) =>
   };
 
   return (
-    <motion.div
-      whileHover={{ 
-        scale: 1.05,
-        y: -8,
-        boxShadow: 'var(--shadow-glow)'
-      }}
-      whileTap={{ scale: 0.95 }}
+    <div
       className={cn(
         "group relative cursor-pointer overflow-hidden rounded-2xl aspect-square",
         "bg-gradient-surface border border-border/50",
-        "transition-all duration-300 hover:border-primary/50",
+        "transition-all duration-200 hover:border-primary/50 hover:shadow-lg",
         app.color,
         className
       )}
       onClick={() => onLaunch(app)}
     >
       {/* Glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       
       {/* Timer controls overlay */}
       {activeTimer && (
@@ -139,6 +133,6 @@ export const AppCard = ({ app, onLaunch, onDelete, className }: AppCardProps) =>
       {activeTimer && (
         <div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-pulse z-30" />
       )}
-    </motion.div>
+    </div>
   );
 };
