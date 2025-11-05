@@ -15,16 +15,9 @@ import { Loader2 } from 'lucide-react';
 export const MainLayout = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [apps] = useLocalStorage('screenCoachApps', []);
   const {
-    currentTimer,
-    timeRemaining,
-    isTimerRunning,
     showBreak,
     currentBreakActivity,
-    pauseTimer,
-    resumeTimer,
-    stopTimer,
     completeBreak,
   } = useTimer();
 
@@ -104,18 +97,6 @@ export const MainLayout = () => {
 
           <main className="flex-1 p-6 overflow-auto">
             <div className="max-w-7xl mx-auto space-y-6">
-              {currentTimer && (
-                <TimerDisplay
-                  appName={apps.find((a: any) => a.id === currentTimer.appId)?.name || ''}
-                  timeRemaining={timeRemaining}
-                  totalTime={currentTimer.duration}
-                  isRunning={isTimerRunning}
-                  onPause={pauseTimer}
-                  onResume={resumeTimer}
-                  onStop={stopTimer}
-                />
-              )}
-              
               <Outlet />
             </div>
           </main>

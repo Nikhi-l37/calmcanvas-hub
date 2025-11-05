@@ -5,17 +5,26 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { breakActivities } from '@/data/breakActivities';
 import { App, TimerSession, BreakActivity } from '@/types';
 
-interface TimerContextType {
-  currentTimer: TimerSession | null;
+interface ActiveTimer {
+  appId: number;
+  appName: string;
+  sessionId: string;
+  startTime: Date;
+  totalDuration: number;
   timeRemaining: number;
-  isTimerRunning: boolean;
+  isRunning: boolean;
+}
+
+interface TimerContextType {
+  activeTimers: Map<number, ActiveTimer>;
   showBreak: boolean;
   currentBreakActivity: BreakActivity | null;
   startTimer: (app: App) => void;
-  pauseTimer: () => void;
-  resumeTimer: () => void;
-  stopTimer: () => void;
+  pauseTimer: (appId: number) => void;
+  resumeTimer: (appId: number) => void;
+  stopTimer: (appId: number) => void;
   completeBreak: () => void;
+  getTimerForApp: (appId: number) => ActiveTimer | undefined;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -25,72 +34,117 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
   const { startSession, endSession, recordBreak } = useSessionTracking(user?.id);
   const { sendNotification } = useNotifications();
   
-  const [currentTimer, setCurrentTimer] = useState<TimerSession | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [activeTimers, setActiveTimers] = useState<Map<number, ActiveTimer>>(new Map());
   const [showBreak, setShowBreak] = useState(false);
   const [currentBreakActivity, setCurrentBreakActivity] = useState<BreakActivity | null>(null);
 
-  const triggerBreakTime = useCallback(() => {
+  const triggerBreakTime = useCallback((appId: number, sessionId: string) => {
     const randomActivity = breakActivities[Math.floor(Math.random() * breakActivities.length)];
     setCurrentBreakActivity(randomActivity);
     setShowBreak(true);
-    endSession();
+    endSession(sessionId);
 
     sendNotification('Break Time!', {
       body: `Time's up! Take a quick break.`,
       tag: 'break-time'
     });
+
+    // Remove timer from active timers
+    setActiveTimers(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(appId);
+      return newMap;
+    });
   }, [sendNotification, endSession]);
 
-  // Timer countdown logic
+  // Timer countdown logic for all active timers
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isTimerRunning && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            setIsTimerRunning(false);
-            triggerBreakTime();
-            return 0;
+    const interval = setInterval(() => {
+      setActiveTimers(prev => {
+        const newMap = new Map(prev);
+        let hasChanges = false;
+
+        newMap.forEach((timer, appId) => {
+          if (timer.isRunning && timer.timeRemaining > 0) {
+            hasChanges = true;
+            const newTimeRemaining = timer.timeRemaining - 1;
+            
+            if (newTimeRemaining <= 0) {
+              // Timer finished
+              triggerBreakTime(appId, timer.sessionId);
+              newMap.delete(appId);
+            } else {
+              newMap.set(appId, {
+                ...timer,
+                timeRemaining: newTimeRemaining
+              });
+            }
           }
-          return prev - 1;
         });
-      }, 1000);
-    }
+
+        return hasChanges ? newMap : prev;
+      });
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTimerRunning, timeRemaining, triggerBreakTime]);
+  }, [triggerBreakTime]);
 
-  const startTimer = useCallback((app: App) => {
-    const session: TimerSession = {
+  const startTimer = useCallback(async (app: App) => {
+    // Check if timer already exists for this app
+    if (activeTimers.has(app.id)) {
+      return; // Don't start duplicate timer
+    }
+
+    const sessionId = await startSession(app.id, app.name);
+    if (!sessionId) return;
+
+    const newTimer: ActiveTimer = {
       appId: app.id,
+      appName: app.name,
+      sessionId,
       startTime: new Date(),
-      duration: app.timeLimit * 60,
-      completed: false
+      totalDuration: app.timeLimit * 60,
+      timeRemaining: app.timeLimit * 60,
+      isRunning: true
     };
 
-    setCurrentTimer(session);
-    setTimeRemaining(session.duration);
-    setIsTimerRunning(true);
-    startSession(app.id, app.name);
-  }, [startSession]);
+    setActiveTimers(prev => new Map(prev).set(app.id, newTimer));
+  }, [startSession, activeTimers]);
 
-  const pauseTimer = useCallback(() => {
-    setIsTimerRunning(false);
+  const pauseTimer = useCallback((appId: number) => {
+    setActiveTimers(prev => {
+      const timer = prev.get(appId);
+      if (!timer) return prev;
+      
+      const newMap = new Map(prev);
+      newMap.set(appId, { ...timer, isRunning: false });
+      return newMap;
+    });
   }, []);
 
-  const resumeTimer = useCallback(() => {
-    setIsTimerRunning(true);
+  const resumeTimer = useCallback((appId: number) => {
+    setActiveTimers(prev => {
+      const timer = prev.get(appId);
+      if (!timer) return prev;
+      
+      const newMap = new Map(prev);
+      newMap.set(appId, { ...timer, isRunning: true });
+      return newMap;
+    });
   }, []);
 
-  const stopTimer = useCallback(() => {
-    setIsTimerRunning(false);
-    endSession();
-    setCurrentTimer(null);
-    setTimeRemaining(0);
-  }, [endSession]);
+  const stopTimer = useCallback((appId: number) => {
+    const timer = activeTimers.get(appId);
+    if (!timer) return;
+
+    endSession(timer.sessionId);
+    
+    setActiveTimers(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(appId);
+      return newMap;
+    });
+  }, [activeTimers, endSession]);
 
   const completeBreak = useCallback(async () => {
     setShowBreak(false);
@@ -100,16 +154,16 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
     }
     
     setCurrentBreakActivity(null);
-    setCurrentTimer(null);
-    setTimeRemaining(0);
   }, [currentBreakActivity, recordBreak]);
+
+  const getTimerForApp = useCallback((appId: number) => {
+    return activeTimers.get(appId);
+  }, [activeTimers]);
 
   return (
     <TimerContext.Provider
       value={{
-        currentTimer,
-        timeRemaining,
-        isTimerRunning,
+        activeTimers,
         showBreak,
         currentBreakActivity,
         startTimer,
@@ -117,6 +171,7 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
         resumeTimer,
         stopTimer,
         completeBreak,
+        getTimerForApp,
       }}
     >
       {children}

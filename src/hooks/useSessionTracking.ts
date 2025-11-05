@@ -6,8 +6,8 @@ export const useSessionTracking = (userId: string | undefined) => {
   const currentSessionRef = useRef<string | null>(null);
   const { toast } = useToast();
 
-  const startSession = useCallback(async (appId: number, appName: string) => {
-    if (!userId) return;
+  const startSession = useCallback(async (appId: number, appName: string): Promise<string | null> => {
+    if (!userId) return null;
 
     try {
       const { data, error } = await supabase
@@ -21,23 +21,25 @@ export const useSessionTracking = (userId: string | undefined) => {
         .single();
 
       if (error) throw error;
-      currentSessionRef.current = data.id;
+      return data.id;
     } catch (error) {
       console.error('Error starting session:', error);
+      return null;
     }
   }, [userId]);
 
-  const endSession = useCallback(async () => {
-    if (!userId || !currentSessionRef.current) return;
+  const endSession = useCallback(async (sessionId?: string) => {
+    if (!userId) return;
+    if (!sessionId && !currentSessionRef.current) return;
 
     try {
-      const sessionId = currentSessionRef.current;
+      const targetSessionId = sessionId || currentSessionRef.current;
       
       // Get session start time
       const { data: session } = await supabase
         .from('app_sessions')
         .select('start_time, app_id, app_name')
-        .eq('id', sessionId)
+        .eq('id', targetSessionId)
         .single();
 
       if (session) {
@@ -52,7 +54,7 @@ export const useSessionTracking = (userId: string | undefined) => {
             end_time: endTime.toISOString(),
             duration_seconds: durationSeconds,
           })
-          .eq('id', sessionId);
+          .eq('id', targetSessionId);
 
         // Update daily stats
         const today = new Date().toISOString().split('T')[0];
@@ -97,7 +99,9 @@ export const useSessionTracking = (userId: string | undefined) => {
         await updateStreak(userId, today);
       }
 
-      currentSessionRef.current = null;
+      if (!sessionId) {
+        currentSessionRef.current = null;
+      }
     } catch (error) {
       console.error('Error ending session:', error);
     }
