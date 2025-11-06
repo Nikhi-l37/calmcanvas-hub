@@ -45,6 +45,7 @@ export const Dashboard = () => {
         appsUsedToday={stats.appsUsedToday}
         breaksToday={stats.breaksToday}
         streak={stats.streak}
+        highestStreak={stats.highestStreak}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

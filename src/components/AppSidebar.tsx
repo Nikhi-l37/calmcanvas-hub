@@ -1,4 +1,4 @@
-import { LayoutDashboard, Smartphone, Target, BarChart3, LogOut } from 'lucide-react';
+import { LayoutDashboard, Smartphone, Target, BarChart3, Flame, LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 const items = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'My Apps', url: '/apps', icon: Smartphone },
+  { title: 'Streaks', url: '/streaks', icon: Flame },
   { title: 'Goals', url: '/goals', icon: Target },
   { title: 'Statistics', url: '/statistics', icon: BarChart3 },
 ];

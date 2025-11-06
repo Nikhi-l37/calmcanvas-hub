@@ -10,6 +10,7 @@ export interface UserStats {
   appsUsedYesterday: number;
   breaksYesterday: number;
   streak: number;
+  highestStreak: number;
   weeklyProgress: number[];
 }
 
@@ -22,6 +23,7 @@ export const useStats = (userId: string | undefined) => {
     appsUsedYesterday: 0,
     breaksYesterday: 0,
     streak: 0,
+    highestStreak: 0,
     weeklyProgress: [0, 0, 0, 0, 0, 0, 0],
   });
   const [loading, setLoading] = useState(true);
@@ -56,7 +58,7 @@ export const useStats = (userId: string | undefined) => {
         // Fetch streak
         const { data: streakData } = await supabase
           .from('user_streaks')
-          .select('current_streak')
+          .select('current_streak, highest_streak')
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -92,6 +94,7 @@ export const useStats = (userId: string | undefined) => {
           appsUsedYesterday: yesterdayStats?.apps_used || 0,
           breaksYesterday: yesterdayStats?.breaks_taken || 0,
           streak: streakData?.current_streak || 0,
+          highestStreak: streakData?.highest_streak || 0,
           weeklyProgress: weeklyProgress.slice(-7),
         });
       } catch (error) {

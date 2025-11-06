@@ -74,6 +74,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_completions: {
+        Row: {
+          completed: boolean
+          created_at: string
+          date: string
+          id: string
+          total_time_seconds: number
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          date: string
+          id?: string
+          total_time_seconds?: number
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          date?: string
+          id?: string
+          total_time_seconds?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_stats: {
         Row: {
           apps_used: number
@@ -132,6 +159,7 @@ export type Database = {
         Row: {
           created_at: string
           current_streak: number
+          highest_streak: number
           id: string
           last_activity_date: string
           longest_streak: number
@@ -141,6 +169,7 @@ export type Database = {
         Insert: {
           created_at?: string
           current_streak?: number
+          highest_streak?: number
           id?: string
           last_activity_date?: string
           longest_streak?: number
@@ -150,6 +179,7 @@ export type Database = {
         Update: {
           created_at?: string
           current_streak?: number
+          highest_streak?: number
           id?: string
           last_activity_date?: string
           longest_streak?: number

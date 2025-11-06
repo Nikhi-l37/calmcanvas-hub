@@ -172,6 +172,7 @@ async function updateStreak(userId: string, today: string) {
         user_id: userId,
         current_streak: 1,
         longest_streak: 1,
+        highest_streak: 1,
         last_activity_date: today,
       });
   } else {
@@ -182,17 +183,32 @@ async function updateStreak(userId: string, today: string) {
       // Continue streak
       newStreak += 1;
     } else if (lastActivity !== today) {
-      // Reset streak
+      // Reset streak if more than 1 day gap
       newStreak = 1;
     }
+
+    const newHighestStreak = Math.max(newStreak, streak.highest_streak || 0);
 
     await supabase
       .from('user_streaks')
       .update({
         current_streak: newStreak,
         longest_streak: Math.max(newStreak, streak.longest_streak),
+        highest_streak: newHighestStreak,
         last_activity_date: today,
       })
       .eq('user_id', userId);
   }
+
+  // Update daily completions
+  await supabase
+    .from('daily_completions')
+    .upsert({
+      user_id: userId,
+      date: today,
+      completed: true,
+      total_time_seconds: 60, // Mark as completed with at least 1 minute
+    }, {
+      onConflict: 'user_id,date'
+    });
 }

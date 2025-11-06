@@ -8,6 +8,7 @@ import { MainLayout } from "./pages/MainLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { MyApps } from "./pages/MyApps";
 import { Goals } from "./pages/Goals";
+import { Streaks } from "./pages/Streaks";
 import { Statistics } from "./pages/Statistics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="apps" element={<MyApps />} />
+              <Route path="streaks" element={<Streaks />} />
               <Route path="goals" element={<Goals />} />
               <Route path="statistics" element={<Statistics />} />
             </Route>

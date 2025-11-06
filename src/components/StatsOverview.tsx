@@ -7,9 +7,10 @@ interface StatsOverviewProps {
   appsUsedToday: number;
   breaksToday: number;
   streak: number;
+  highestStreak?: number;
 }
 
-export const StatsOverview = ({ totalTimeToday, appsUsedToday, breaksToday, streak }: StatsOverviewProps) => {
+export const StatsOverview = ({ totalTimeToday, appsUsedToday, breaksToday, streak, highestStreak = 0 }: StatsOverviewProps) => {
   const statItems = [
     {
       icon: Clock,
@@ -39,7 +40,7 @@ export const StatsOverview = ({ totalTimeToday, appsUsedToday, breaksToday, stre
       icon: Flame,
       label: 'Streak',
       value: streak.toString(),
-      subtext: 'days',
+      subtext: `current (best: ${highestStreak})`,
       gradient: 'from-orange-500/20 to-red-500/20',
       iconColor: 'text-orange-500',
     }
