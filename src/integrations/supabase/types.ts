@@ -139,19 +139,64 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          name: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           email: string
           id: string
+          name?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
+          name?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_apps: {
+        Row: {
+          app_id: number
+          created_at: string
+          icon: string
+          id: string
+          is_active: boolean
+          last_used: string | null
+          name: string
+          time_limit: number
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          app_id: number
+          created_at?: string
+          icon: string
+          id?: string
+          is_active?: boolean
+          last_used?: string | null
+          name: string
+          time_limit?: number
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          app_id?: number
+          created_at?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          last_used?: string | null
+          name?: string
+          time_limit?: number
+          updated_at?: string
+          url?: string
+          user_id?: string
         }
         Relationships: []
       }

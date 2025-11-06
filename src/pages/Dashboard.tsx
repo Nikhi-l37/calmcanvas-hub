@@ -8,15 +8,43 @@ import { AppUsageBreakdown } from '@/components/AppUsageBreakdown';
 import { BreakHistory } from '@/components/BreakHistory';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Dashboard = () => {
   const { user, loading } = useAuth();
   const { stats, loading: statsLoading } = useStats(user?.id);
+  const [userName, setUserName] = useState('');
   const [goals] = useLocalStorage('screenTimeGoals', {
     dailyLimit: 90,
     weeklyTarget: 15,
     breakFrequency: 25
   });
+
+  useEffect(() => {
+    if (user) {
+      fetchUserName();
+    }
+  }, [user]);
+
+  const fetchUserName = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setUserName(data.name || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user name:', error);
+    }
+  };
 
   if (loading || statsLoading) {
     return (
@@ -33,7 +61,7 @@ export const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-          Dashboard
+          Welcome back{userName ? `, ${userName}` : ''}!
         </h1>
         <p className="text-muted-foreground">
           Overview of your screen time and progress

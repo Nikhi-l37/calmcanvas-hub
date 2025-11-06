@@ -1,4 +1,4 @@
-import { LayoutDashboard, Smartphone, Target, BarChart3, Flame, LogOut } from 'lucide-react';
+import { LayoutDashboard, Smartphone, Target, BarChart3, Flame, LogOut, UserCircle } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -21,6 +21,7 @@ const items = [
   { title: 'Streaks', url: '/streaks', icon: Flame },
   { title: 'Goals', url: '/goals', icon: Target },
   { title: 'Statistics', url: '/statistics', icon: BarChart3 },
+  { title: 'Profile', url: '/profile', icon: UserCircle },
 ];
 
 export function AppSidebar() {

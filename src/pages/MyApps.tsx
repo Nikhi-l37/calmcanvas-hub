@@ -1,11 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStats } from '@/hooks/useStats';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useNotifications } from '@/hooks/useNotifications';
 import { AppCard } from '@/components/AppCard';
 import { PasswordConfirmDialog } from '@/components/PasswordConfirmDialog';
@@ -13,11 +12,13 @@ import { AddAppDialog } from '@/components/AddAppDialog';
 import { defaultApps } from '@/data/defaultApps';
 import { useTimer } from '@/contexts/TimerContext';
 import { App } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export const MyApps = () => {
   const { user, loading } = useAuth();
   const { stats } = useStats(user?.id);
-  const [apps, setApps] = useLocalStorage<App[]>('screenCoachApps', defaultApps);
+  const [apps, setApps] = useState<App[]>([]);
+  const [appsLoading, setAppsLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [appToDelete, setAppToDelete] = useState<number | null>(null);
@@ -26,6 +27,80 @@ export const MyApps = () => {
   const { requestPermission, canSend, permission } = useNotifications();
   const { startTimer } = useTimer();
 
+  useEffect(() => {
+    if (user) {
+      fetchUserApps();
+    }
+  }, [user]);
+
+  const fetchUserApps = async () => {
+    if (!user) return;
+    
+    try {
+      setAppsLoading(true);
+      const { data, error } = await supabase
+        .from('user_apps')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const userApps: App[] = data.map(app => ({
+          id: app.app_id,
+          name: app.name,
+          url: app.url,
+          icon: app.icon,
+          color: 'blue',
+          category: 'other' as const,
+          timeLimit: app.time_limit,
+          isActive: app.is_active,
+          lastUsed: app.last_used ? new Date(app.last_used) : undefined
+        }));
+        setApps(userApps);
+      } else {
+        // First time user - add default apps
+        await addDefaultApps();
+      }
+    } catch (error) {
+      console.error('Error fetching apps:', error);
+      toast({
+        title: "Error loading apps",
+        description: "Could not load your apps. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAppsLoading(false);
+    }
+  };
+
+  const addDefaultApps = async () => {
+    if (!user) return;
+    
+    try {
+      const appsToInsert = defaultApps.map(app => ({
+        user_id: user.id,
+        app_id: app.id,
+        name: app.name,
+        url: app.url,
+        icon: app.icon,
+        time_limit: app.timeLimit,
+        is_active: false
+      }));
+
+      const { error } = await supabase
+        .from('user_apps')
+        .insert(appsToInsert);
+
+      if (error) throw error;
+      
+      await fetchUserApps();
+    } catch (error) {
+      console.error('Error adding default apps:', error);
+    }
+  };
+
   const launchApp = useCallback(async (app: App) => {
     if (!canSend && permission === 'default') {
       await requestPermission();
@@ -33,6 +108,25 @@ export const MyApps = () => {
 
     window.open(app.url, '_blank');
     startTimer(app);
+
+    // Update app in database
+    if (user) {
+      await supabase
+        .from('user_apps')
+        .update({
+          is_active: true,
+          last_used: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('app_id', app.id);
+
+      // Set all other apps to inactive
+      await supabase
+        .from('user_apps')
+        .update({ is_active: false })
+        .eq('user_id', user.id)
+        .neq('app_id', app.id);
+    }
 
     setApps(prev => prev.map(a => ({
       ...a,
@@ -44,14 +138,39 @@ export const MyApps = () => {
       title: `Launched ${app.name}`,
       description: `Timer set for ${app.timeLimit} minutes. Enjoy!`
     });
-  }, [canSend, requestPermission, toast, startTimer, setApps]);
+  }, [canSend, requestPermission, toast, startTimer, user]);
 
-  const handleAddApp = (newApp: App) => {
-    setApps(prev => [...prev, newApp]);
-    toast({
-      title: "App added!",
-      description: `${newApp.name} has been added to your apps.`
-    });
+  const handleAddApp = async (newApp: App) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_apps')
+        .insert({
+          user_id: user.id,
+          app_id: newApp.id,
+          name: newApp.name,
+          url: newApp.url,
+          icon: newApp.icon,
+          time_limit: newApp.timeLimit,
+          is_active: false
+        });
+
+      if (error) throw error;
+
+      setApps(prev => [...prev, newApp]);
+      toast({
+        title: "App added!",
+        description: `${newApp.name} has been added to your apps.`
+      });
+    } catch (error) {
+      console.error('Error adding app:', error);
+      toast({
+        title: "Error",
+        description: "Could not add app. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const removeApp = (id: number) => {
@@ -59,24 +178,56 @@ export const MyApps = () => {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteApp = () => {
-    if (appToDelete === null) return;
-    setApps(prev => prev.filter(app => app.id !== appToDelete));
-    setShowDeleteDialog(false);
-    setAppToDelete(null);
-    toast({
-      title: "App removed",
-      description: "The app has been removed."
-    });
+  const confirmDeleteApp = async () => {
+    if (appToDelete === null || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_apps')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('app_id', appToDelete);
+
+      if (error) throw error;
+
+      setApps(prev => prev.filter(app => app.id !== appToDelete));
+      setShowDeleteDialog(false);
+      setAppToDelete(null);
+      toast({
+        title: "App removed",
+        description: "The app has been removed."
+      });
+    } catch (error) {
+      console.error('Error deleting app:', error);
+      toast({
+        title: "Error",
+        description: "Could not delete app. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateAppTimeLimit = (id: number, timeLimit: number) => {
-    setApps(prev => prev.map(app => 
-      app.id === id ? { ...app, timeLimit } : app
-    ));
+  const updateAppTimeLimit = async (id: number, timeLimit: number) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_apps')
+        .update({ time_limit: timeLimit })
+        .eq('user_id', user.id)
+        .eq('app_id', id);
+
+      if (error) throw error;
+
+      setApps(prev => prev.map(app => 
+        app.id === id ? { ...app, timeLimit } : app
+      ));
+    } catch (error) {
+      console.error('Error updating time limit:', error);
+    }
   };
 
-  if (loading) {
+  if (loading || appsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
