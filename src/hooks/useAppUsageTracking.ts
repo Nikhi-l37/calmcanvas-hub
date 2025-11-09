@@ -39,7 +39,11 @@ export const useAppUsageTracking = () => {
   }, []);
 
   const checkPermission = async () => {
-    if (!UsageStatsManager) return;
+    if (!UsageStatsManager) {
+      console.warn('UsageStatsManager not available, retrying...');
+      setTimeout(checkPermission, 1000); // Retry after 1 second
+      return;
+    }
     
     try {
       const result = await UsageStatsManager.isUsageStatsPermissionGranted();
@@ -70,21 +74,53 @@ export const useAppUsageTracking = () => {
     
     try {
       const result = await UsageStatsManager.queryAllPackages();
+      console.log('Raw packages from device:', result.packages.length);
       
-      // Filter out system apps and format the data
+      // More lenient filter - only exclude obvious system apps
       const apps: InstalledApp[] = result.packages
-        .filter(pkg => 
-          pkg.packageName && 
-          !pkg.packageName.startsWith('com.android.') &&
-          !pkg.packageName.startsWith('com.google.android.')
-        )
-        .map(pkg => ({
+        .filter((app: any) => {
+          if (!app.packageName) return false;
+      
+          // Only filter out very specific system packages
+          const systemPrefixes = [
+            'com.android.systemui',
+            'com.android.settings',
+            'com.android.providers',
+            'android.auto_generated',
+            'app.lovable.efbe28a2ea794dd8a955a30390665a53' // Our own app
+          ];
+      
+          // Check if package starts with any system prefix
+          const isSystemPackage = systemPrefixes.some((prefix: string) => app.packageName.startsWith(prefix));
+          
+          if (isSystemPackage) {
+            console.log('Filtering system package:', app.packageName);
+            return false;
+          }
+          
+          // Filter apps without proper names
+          if (!app.appName || app.appName.trim() === '') {
+            console.log('Filtering app without name:', app.packageName);
+            return false;
+          }
+          
+          // Filter generic component names
+          const invalidNames = ['Main components', 'Services', 'calmcanvas-hub'];
+          if (invalidNames.some((name: string) => app.appName === name)) {
+            console.log('Filtering generic name:', app.appName, app.packageName);
+            return false;
+          }
+      
+          return true;
+        })
+        .map((pkg: any) => ({
           packageName: pkg.packageName,
           appName: pkg.appName || pkg.packageName.split('.').pop() || pkg.packageName,
           icon: pkg.icon
         }))
-        .sort((a, b) => a.appName.localeCompare(b.appName));
+        .sort((a: InstalledApp, b: InstalledApp) => a.appName.localeCompare(b.appName));
       
+      console.log('Filtered to', apps.length, 'apps');
       setInstalledApps(apps);
     } catch (error) {
       console.error('Error loading installed apps:', error);

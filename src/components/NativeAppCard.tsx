@@ -1,4 +1,4 @@
-import { Play, Pause, Square } from 'lucide-react';
+import { Play, Pause, Square, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTimer } from '@/contexts/TimerContext';
@@ -9,9 +9,10 @@ interface NativeAppCardProps {
   packageName: string;
   timeLimit: number;
   className?: string;
+  onDelete?: (appId: number) => void;
 }
 
-export const NativeAppCard = ({ appId, appName, packageName, timeLimit, className }: NativeAppCardProps) => {
+export const NativeAppCard = ({ appId, appName, packageName, timeLimit, className, onDelete }: NativeAppCardProps) => {
   const { getTimerForApp, pauseTimer, resumeTimer, stopTimer } = useTimer();
   const activeTimer = getTimerForApp(appId);
 
@@ -33,6 +34,13 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
     e.stopPropagation();
     if (activeTimer) {
       stopTimer(appId);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(appId);
     }
   };
 
@@ -111,6 +119,18 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
       {/* Status indicator */}
       {activeTimer && (
         <div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-pulse z-30" />
+      )}
+      
+      {/* Delete button */}
+      {!activeTimer && onDelete && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/10 hover:bg-destructive/20 text-destructive"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
       )}
     </div>
   );

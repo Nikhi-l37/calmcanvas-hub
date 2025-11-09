@@ -129,6 +129,34 @@ export const MyApps = () => {
     }
   };
 
+  const handleDeleteApp = async (appId: number) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_apps')
+        .delete()
+        .eq('app_id', appId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await fetchTrackedApps();
+      
+      toast({
+        title: "App removed",
+        description: "App has been removed from tracking."
+      });
+    } catch (error) {
+      console.error('Error deleting app:', error);
+      toast({
+        title: "Error",
+        description: "Could not remove app. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading || appsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -207,6 +235,7 @@ export const MyApps = () => {
               appName={app.name}
               packageName={app.packageName}
               timeLimit={app.timeLimit}
+              onDelete={handleDeleteApp}
             />
           ))}
         </div>
