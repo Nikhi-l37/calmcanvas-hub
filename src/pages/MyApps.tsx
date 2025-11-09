@@ -33,8 +33,10 @@ export const MyApps = () => {
   useEffect(() => {
     if (user) {
       fetchTrackedApps();
+    } else if (!loading) {
+      setAppsLoading(false);
     }
-  }, [user]);
+  }, [user, loading]);
 
   // Poll for usage stats every 30 seconds when apps are being tracked
   useEffect(() => {
@@ -58,7 +60,10 @@ export const MyApps = () => {
   }, [user, trackedApps, isSupported]);
 
   const fetchTrackedApps = async () => {
-    if (!user) return;
+    if (!user) {
+      setAppsLoading(false);
+      return;
+    }
     
     try {
       setAppsLoading(true);
@@ -69,7 +74,10 @@ export const MyApps = () => {
         .order('created_at', { ascending: true })
         .limit(MAX_APPS);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       if (data && data.length > 0) {
         const apps: TrackedApp[] = data.map(app => ({
@@ -79,9 +87,12 @@ export const MyApps = () => {
           timeLimit: app.time_limit
         }));
         setTrackedApps(apps);
+      } else {
+        setTrackedApps([]);
       }
     } catch (error) {
       console.error('Error fetching tracked apps:', error);
+      setTrackedApps([]);
       toast({
         title: "Error loading apps",
         description: "Could not load your tracked apps.",
