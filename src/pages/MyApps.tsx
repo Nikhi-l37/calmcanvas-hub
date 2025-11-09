@@ -170,8 +170,19 @@ export const MyApps = () => {
 
   if (loading || appsLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading your apps...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <Smartphone className="h-16 w-16 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Sign in required</h2>
+        <p className="text-muted-foreground">Please sign in to track your apps</p>
       </div>
     );
   }

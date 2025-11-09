@@ -76,38 +76,49 @@ export const useAppUsageTracking = () => {
       const result = await UsageStatsManager.queryAllPackages();
       console.log('Raw packages from device:', result.packages.length);
       
-      // More lenient filter - only exclude obvious system apps
+      // Filter to show only user-installed apps
       const apps: InstalledApp[] = result.packages
         .filter((app: any) => {
-          if (!app.packageName) return false;
+          if (!app.packageName || !app.appName) return false;
       
-          // Only filter out very specific system packages
-          const systemPrefixes = [
+          // Exclude specific system packages and components
+          const systemPackages = [
             'com.android.systemui',
             'com.android.settings',
             'com.android.providers',
+            'com.android.launcher',
+            'com.android.inputmethod',
+            'com.android.vending.setup',
+            'com.google.android.gms',
+            'com.google.android.gsf',
+            'com.google.android.ext',
+            'com.google.android.overlay',
+            'com.google.android.packageinstaller',
+            'com.google.android.permissioncontroller',
+            'com.google.mainline',
             'android.auto_generated',
-            'app.lovable.efbe28a2ea794dd8a955a30390665a53' // Our own app
+            'app.lovable.efbe28a2ea794dd8a955a30390665a53'
           ];
       
-          // Check if package starts with any system prefix
-          const isSystemPackage = systemPrefixes.some((prefix: string) => app.packageName.startsWith(prefix));
-          
-          if (isSystemPackage) {
-            console.log('Filtering system package:', app.packageName);
+          if (systemPackages.some((pkg: string) => app.packageName.startsWith(pkg))) {
             return false;
           }
           
-          // Filter apps without proper names
-          if (!app.appName || app.appName.trim() === '') {
-            console.log('Filtering app without name:', app.packageName);
-            return false;
-          }
+          // Exclude system component names
+          const systemNames = [
+            'android system',
+            'system ui',
+            'main components',
+            'support components',
+            'services',
+            'package installer',
+            'android auto',
+            'webview',
+            'calmcanvas-hub'
+          ];
           
-          // Filter generic component names
-          const invalidNames = ['Main components', 'Services', 'calmcanvas-hub'];
-          if (invalidNames.some((name: string) => app.appName === name)) {
-            console.log('Filtering generic name:', app.appName, app.packageName);
+          const lowerAppName = app.appName.toLowerCase();
+          if (systemNames.some((name: string) => lowerAppName.includes(name))) {
             return false;
           }
       
