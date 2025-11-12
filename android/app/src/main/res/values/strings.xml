@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">calmcanvas-hub</string>
+    <string name="title_activity_main">calmcanvas-hub</string>
+    <string name="package_name">app.lovable.efbe28a2ea794dd8a955a30390665a53</string>
+    <string name="custom_url_scheme">app.lovable.efbe28a2ea794dd8a955a30390665a53</string>
+</resources>
