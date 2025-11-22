@@ -11,12 +11,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { InstalledApp, useAppUsageTracking } from '@/hooks/useAppUsageTracking';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Capacitor } from '@capacitor/core';
+import { useTimer } from '@/contexts/TimerContext';
+import { useSessionTracking } from '@/hooks/useSessionTracking'; // <-- ADDED
 
 interface TrackedApp {
   id: number;
   name: string;
   packageName: string;
   timeLimit: number;
+}
+
+// NEW INTERFACE to track the last known total time from the native tracker
+interface NativeUsageTracker {
+    [packageName: string]: number; // Stores last reported totalTimeInForeground (in seconds)
 }
 
 const MAX_APPS = 5;
@@ -30,6 +37,12 @@ export const MyApps = () => {
   const { isSupported, getAppUsageStats } = useAppUsageTracking();
   const isNativePlatform = Capacitor.getPlatform() === 'android';
 
+  const { startSession, endSession } = useSessionTracking(user?.id); // <-- ADDED HOOK
+  const { activeTimers, triggerNativeBreak } = useTimer();
+  
+  // NEW STATE: Tracks the last time logged to prevent double counting
+  const [lastLoggedUsage, setLastLoggedUsage] = useState<NativeUsageTracker>({}); 
+
   useEffect(() => {
     if (user) {
       fetchTrackedApps();
@@ -37,27 +50,6 @@ export const MyApps = () => {
       setAppsLoading(false);
     }
   }, [user, loading]);
-
-  // Poll for usage stats every 30 seconds when apps are being tracked
-  useEffect(() => {
-    if (!user || trackedApps.length === 0 || !isSupported) return;
-
-    const interval = setInterval(async () => {
-      const packageNames = trackedApps.map(app => app.packageName);
-      const stats = await getAppUsageStats(packageNames, 1);
-      
-      // Update session tracking based on usage stats
-      for (const app of trackedApps) {
-        const appStats = stats[app.packageName];
-        if (appStats && appStats.totalTimeInForeground > 0) {
-          // App is being used - track the session
-          console.log(`${app.name} usage: ${appStats.totalTimeInForeground}ms`);
-        }
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [user, trackedApps, isSupported]);
 
   const fetchTrackedApps = async () => {
     if (!user) {
@@ -102,6 +94,84 @@ export const MyApps = () => {
       setAppsLoading(false);
     }
   };
+
+
+  // MODIFIED: Polling logic to sync native app usage and record time
+  useEffect(() => {
+    if (!user || trackedApps.length === 0 || !isSupported) return;
+
+    const packageNames = trackedApps.map(app => app.packageName);
+    
+    const syncNativeAppUsage = async () => {
+      // Query usage stats for the entire day (1 day)
+      const stats = await getAppUsageStats(packageNames, 1); 
+      
+      const newLastLoggedUsage = { ...lastLoggedUsage };
+
+      for (const app of trackedApps) {
+        const appStats = stats[app.packageName];
+        // Convert total foreground time from ms to seconds
+        const currentTimeUsedSeconds = Math.round((appStats?.totalTimeInForeground || 0) / 1000);
+        const timeLimitSeconds = app.timeLimit * 60;
+        
+        // Determine how much NEW time has been used since the last check
+        const lastKnownUsage = lastLoggedUsage[app.packageName] || currentTimeUsedSeconds;
+        const incrementalTime = currentTimeUsedSeconds - lastKnownUsage;
+
+        // --------------------------------------------------------
+        // 1. LOGGING USAGE TIME (Creates/Ends a session for the last 30 seconds)
+        // --------------------------------------------------------
+        if (incrementalTime > 0) {
+            // A. Start a temporary session to get a session ID
+            const sessionId = await startSession(app.id, app.name);
+            
+            if (sessionId) {
+                // B. End the session immediately with the incremental duration.
+                // NOTE: endSession logs the time and updates stats/streaks.
+                await endSession(sessionId, incrementalTime); 
+                
+                // C. Update the last logged time to prevent double counting next time.
+                newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds; 
+            }
+        }
+        
+        // --------------------------------------------------------
+        // 2. ENFORCEMENT (Triggering a Break if limit is exceeded)
+        // --------------------------------------------------------
+        if (currentTimeUsedSeconds >= timeLimitSeconds) {
+            // Check if the app just crossed the limit now
+            if (lastKnownUsage < timeLimitSeconds) {
+              if (activeTimers.has(app.id)) {
+                  // If a manual timer (web-based) is running, force the break.
+                  triggerNativeBreak(app.id); 
+              } else { 
+                  // App just crossed the limit, and no manual timer was running.
+                  toast({
+                      title: `Limit Exceeded for ${app.name}`,
+                      description: `You've used all your allotted ${app.timeLimit} minutes today.`,
+                      variant: 'destructive',
+                      duration: 5000 
+                  });
+              }
+            }
+            // Ensure the tracker reflects current usage even after the limit is hit
+            newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds;
+        } else {
+             // If not over the limit, just set the new usage time
+             newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds;
+        }
+      }
+      
+      // Update the state for the next interval check
+      setLastLoggedUsage(newLastLoggedUsage); 
+    };
+
+    syncNativeAppUsage();
+    const interval = setInterval(syncNativeAppUsage, 30000); 
+
+    return () => clearInterval(interval);
+  }, [user, trackedApps, isSupported, activeTimers, triggerNativeBreak, getAppUsageStats, toast, lastLoggedUsage, startSession, endSession]);
+  
 
   const handleAddApps = async (selectedApps: InstalledApp[]) => {
     if (!user) return;
@@ -234,7 +304,7 @@ export const MyApps = () => {
       {trackedApps.length === 0 ? (
         <div className="text-center py-12">
           <Smartphone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Apps Tracked Yet</h3>
+          <h3 className="text-lg font-semibold">No Apps Tracked Yet</h3>
           <p className="text-muted-foreground mb-4">
             {isNativePlatform 
               ? 'Add apps from your device to start tracking screen time automatically'

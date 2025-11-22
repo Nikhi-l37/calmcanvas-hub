@@ -1,4 +1,5 @@
-const CACHE_NAME = 'screen-coach-v1.0.0';
+const CACHE_NAME = 'screen-coach-v1.0.0';  // Install event - cache static assets
+
 const STATIC_CACHE_URLS = [
   '/',
   '/manifest.json',

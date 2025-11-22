@@ -25,6 +25,8 @@ interface TimerContextType {
   stopTimer: (appId: number) => void;
   completeBreak: () => void;
   getTimerForApp: (appId: number) => ActiveTimer | undefined;
+  // ADDED: Function to force a break, used for native app enforcement
+  triggerNativeBreak: (appId: number) => void; 
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -56,6 +58,22 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
       return newMap;
     });
   }, [sendNotification, endSession]);
+
+  // ADDED: Implementation of triggerNativeBreak
+  const triggerNativeBreak = useCallback((appId: number) => {
+    setActiveTimers(prev => {
+      const timer = prev.get(appId);
+      if (!timer) return prev;
+      
+      // Use the existing logic to clear the session and trigger the break overlay
+      triggerBreakTime(appId, timer.sessionId);
+      
+      // Since triggerBreakTime already updates the map, we return the old map 
+      // but the state change happens inside triggerBreakTime
+      return prev; 
+    });
+  }, [triggerBreakTime]);
+
 
   // Timer countdown logic for all active timers
   useEffect(() => {
@@ -172,6 +190,7 @@ export const TimerProvider = ({ children }: { children: ReactNode }) => {
         stopTimer,
         completeBreak,
         getTimerForApp,
+        triggerNativeBreak, // EXPOSED
       }}
     >
       {children}

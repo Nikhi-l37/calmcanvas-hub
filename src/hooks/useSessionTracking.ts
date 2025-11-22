@@ -28,14 +28,15 @@ export const useSessionTracking = (userId: string | undefined) => {
     }
   }, [userId]);
 
-  const endSession = useCallback(async (sessionId?: string) => {
+  // MODIFIED: Accepts an optional forcedDurationSeconds argument to log native usage.
+  const endSession = useCallback(async (sessionId?: string, forcedDurationSeconds?: number) => { 
     if (!userId) return;
     if (!sessionId && !currentSessionRef.current) return;
 
     try {
       const targetSessionId = sessionId || currentSessionRef.current;
       
-      // Get session start time
+      // Get session details
       const { data: session } = await supabase
         .from('app_sessions')
         .select('start_time, app_id, app_name')
@@ -43,20 +44,30 @@ export const useSessionTracking = (userId: string | undefined) => {
         .single();
 
       if (session) {
-        const endTime = new Date();
-        const startTime = new Date(session.start_time);
-        const durationSeconds = Math.round((endTime.getTime() - startTime.getTime()) / 1000);
+        let durationSeconds: number;
+        
+        if (forcedDurationSeconds !== undefined) { 
+          // Use the duration calculated by the native tracker polling loop
+          durationSeconds = forcedDurationSeconds;
+        } else {
+          // Fallback to original calculation for web timers
+          const endTime = new Date();
+          const startTime = new Date(session.start_time);
+          durationSeconds = Math.round((endTime.getTime() - startTime.getTime()) / 1000); 
+        }
+
+        const timeToAdd = durationSeconds > 0 ? durationSeconds : 0; 
 
         // Update session
         await supabase
           .from('app_sessions')
           .update({
-            end_time: endTime.toISOString(),
-            duration_seconds: durationSeconds,
+            end_time: new Date().toISOString(),
+            duration_seconds: timeToAdd,
           })
           .eq('id', targetSessionId);
 
-        // Update daily stats
+        // Update daily stats (uses timeToAdd)
         const today = new Date().toISOString().split('T')[0];
         const { data: existingStats } = await supabase
           .from('daily_stats')
@@ -65,38 +76,40 @@ export const useSessionTracking = (userId: string | undefined) => {
           .eq('date', today)
           .maybeSingle();
 
-      if (existingStats) {
-        // Check if this is a new app for today
-        const { data: todaySessions } = await supabase
-          .from('app_sessions')
-          .select('app_id')
-          .eq('user_id', userId)
-          .gte('start_time', `${today}T00:00:00`)
-          .lt('start_time', `${today}T23:59:59`);
+        if (existingStats) {
+          // Check if this is a new app for today
+          const { data: todaySessions } = await supabase
+            .from('app_sessions')
+            .select('app_id')
+            .eq('user_id', userId)
+            .gte('start_time', `${today}T00:00:00`)
+            .lt('start_time', `${today}T23:59:59`);
+          
+          const uniqueApps = new Set(todaySessions?.map(s => s.app_id) || []);
+          
+          await supabase
+            .from('daily_stats')
+            .update({
+              total_time_seconds: existingStats.total_time_seconds + timeToAdd,
+              apps_used: uniqueApps.size,
+            })
+            .eq('id', existingStats.id);
+        } else if (timeToAdd > 0) { // Only insert if there's time to add
+          await supabase
+            .from('daily_stats')
+            .insert({
+              user_id: userId,
+              date: today,
+              total_time_seconds: timeToAdd,
+              apps_used: 1,
+              breaks_taken: 0,
+            });
+        }
         
-        const uniqueApps = new Set(todaySessions?.map(s => s.app_id) || []);
-        
-        await supabase
-          .from('daily_stats')
-          .update({
-            total_time_seconds: existingStats.total_time_seconds + durationSeconds,
-            apps_used: uniqueApps.size,
-          })
-          .eq('id', existingStats.id);
-      } else {
-        await supabase
-          .from('daily_stats')
-          .insert({
-            user_id: userId,
-            date: today,
-            total_time_seconds: durationSeconds,
-            apps_used: 1,
-            breaks_taken: 0,
-          });
-      }
-
-        // Update streak
-        await updateStreak(userId, today);
+        // Update streak (only if time was added)
+        if (timeToAdd > 0) {
+            await updateStreak(userId, today);
+        }
       }
 
       if (!sessionId) {
