@@ -34,7 +34,7 @@ export const MainLayout = () => {
     const sendExitNotification = async () => {
       if (user?.email && !exitNotificationSent) {
         exitNotificationSent = true;
-        
+
         try {
           await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
@@ -66,7 +66,7 @@ export const MainLayout = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -82,14 +82,25 @@ export const MainLayout = () => {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Redirecting to login...</p>
+        <button
+          onClick={() => navigate('/auth')}
+          className="mt-4 text-sm text-primary hover:underline"
+        >
+          Click here if not redirected
+        </button>
+      </div>
+    );
   }
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        
+
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b border-border flex items-center px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
             <SidebarTrigger />
@@ -103,7 +114,7 @@ export const MainLayout = () => {
         </div>
 
         <InstallPWAButton />
-        
+
         <BreakOverlay
           activity={currentBreakActivity}
           onComplete={completeBreak}
