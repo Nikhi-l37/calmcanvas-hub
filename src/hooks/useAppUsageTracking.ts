@@ -32,7 +32,7 @@ export const useAppUsageTracking = () => {
   useEffect(() => {
     // Check if running on Android
     setIsSupported(Capacitor.getPlatform() === 'android');
-    
+
     if (Capacitor.getPlatform() === 'android') {
       checkPermission();
     }
@@ -44,11 +44,11 @@ export const useAppUsageTracking = () => {
       setTimeout(checkPermission, 1000); // Retry after 1 second
       return;
     }
-    
+
     try {
       const result = await UsageStatsManager.isUsageStatsPermissionGranted();
       setHasPermission(result.granted);
-      
+
       if (result.granted) {
         await loadInstalledApps();
       }
@@ -59,7 +59,7 @@ export const useAppUsageTracking = () => {
 
   const requestPermission = async () => {
     if (!UsageStatsManager) return;
-    
+
     try {
       await UsageStatsManager.openUsageStatsSettings();
       // Check permission again after user returns from settings
@@ -71,16 +71,16 @@ export const useAppUsageTracking = () => {
 
   const loadInstalledApps = async () => {
     if (!UsageStatsManager) return;
-    
+
     try {
       const result = await UsageStatsManager.queryAllPackages();
       console.log('Raw packages from device:', result.packages.length);
-      
+
       // Filter to show only user-installed apps
       const apps: InstalledApp[] = result.packages
         .filter((app: any) => {
           if (!app.packageName || !app.appName) return false;
-      
+
           // Exclude specific system packages and components
           const systemPackages = [
             'com.android.systemui',
@@ -99,11 +99,11 @@ export const useAppUsageTracking = () => {
             'android.auto_generated',
             'app.lovable.efbe28a2ea794dd8a955a30390665a53'
           ];
-      
+
           if (systemPackages.some((pkg: string) => app.packageName.startsWith(pkg))) {
             return false;
           }
-          
+
           // Exclude system component names
           const systemNames = [
             'android system',
@@ -116,12 +116,12 @@ export const useAppUsageTracking = () => {
             'webview',
             'calmcanvas-hub'
           ];
-          
+
           const lowerAppName = app.appName.toLowerCase();
           if (systemNames.some((name: string) => lowerAppName.includes(name))) {
             return false;
           }
-      
+
           return true;
         })
         .map((pkg: any) => ({
@@ -130,7 +130,7 @@ export const useAppUsageTracking = () => {
           icon: pkg.icon
         }))
         .sort((a: InstalledApp, b: InstalledApp) => a.appName.localeCompare(b.appName));
-      
+
       console.log('Filtered to', apps.length, 'apps');
       setInstalledApps(apps);
     } catch (error) {
@@ -138,21 +138,22 @@ export const useAppUsageTracking = () => {
     }
   };
 
-  const getAppUsageStats = async (packageNames: string[], days: number = 1): Promise<Record<string, AppUsageStats>> => {
+  const getAppUsageStats = async (packageNames: string[], startTime?: number): Promise<Record<string, AppUsageStats>> => {
     if (!UsageStatsManager) return {};
-    
+
     try {
       const endTime = Date.now();
-      const startTime = endTime - (days * 24 * 60 * 60 * 1000);
-      
+      // Default to 24 hours ago if no start time provided
+      const actualStartTime = startTime || (endTime - (24 * 60 * 60 * 1000));
+
       const stats = await UsageStatsManager.queryAndAggregateUsageStats({
         intervalType: 0, // INTERVAL_DAILY
-        startTime,
+        startTime: actualStartTime,
         endTime
       });
 
       const result: Record<string, AppUsageStats> = {};
-      
+
       for (const packageName of packageNames) {
         if (stats[packageName]) {
           result[packageName] = {
@@ -162,7 +163,7 @@ export const useAppUsageTracking = () => {
           };
         }
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error getting usage stats:', error);
