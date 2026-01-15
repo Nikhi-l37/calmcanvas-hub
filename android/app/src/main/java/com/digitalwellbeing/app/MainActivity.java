@@ -1,5 +1,6 @@
-package app.lovable.efbe28a2ea794dd8a955a30390665a53;
+package com.digitalwellbeing.app;
 
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {}
+

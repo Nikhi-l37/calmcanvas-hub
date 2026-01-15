@@ -1,4 +1,0 @@
-project_id = "nopuisvjdhxgcxpqrres"
-
-[functions.send-exit-notification]
-verify_jwt = false

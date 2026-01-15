@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { useTimer } from '@/contexts/TimerContext';
 
 interface NativeAppCardProps {
-  appId: number;
+  appId: string;
   appName: string;
   packageName: string;
   timeLimit: number;
   className?: string;
-  onDelete?: (appId: number) => void;
+  onDelete?: (appId: string) => void;
 }
 
 export const NativeAppCard = ({ appId, appName, packageName, timeLimit, className, onDelete }: NativeAppCardProps) => {
@@ -35,6 +35,7 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
     if (activeTimer) {
       stopTimer(appId);
     }
+    
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -61,7 +62,7 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
     >
       {/* Glow effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      
+
       {/* Timer controls overlay */}
       {activeTimer && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20">
@@ -99,7 +100,7 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
           </div>
         </div>
       )}
-      
+
       {/* Content */}
       <div className="relative h-full flex flex-col items-center justify-center p-6">
         <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center text-3xl font-bold text-white mb-3 shadow-lg">
@@ -120,7 +121,7 @@ export const NativeAppCard = ({ appId, appName, packageName, timeLimit, classNam
       {activeTimer && (
         <div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-pulse z-30" />
       )}
-      
+
       {/* Delete button */}
       {!activeTimer && onDelete && (
         <Button

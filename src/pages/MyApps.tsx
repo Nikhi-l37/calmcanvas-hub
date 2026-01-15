@@ -1,90 +1,61 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Loader2, Smartphone } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { Plus, Loader2, Smartphone, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { NativeAppSelector } from '@/components/NativeAppSelector';
 import { NativeAppCard } from '@/components/NativeAppCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
 import { InstalledApp, useAppUsageTracking } from '@/hooks/useAppUsageTracking';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Capacitor } from '@capacitor/core';
 import { useTimer } from '@/contexts/TimerContext';
-import { useSessionTracking } from '@/hooks/useSessionTracking'; // <-- ADDED
+import { LocalStorage, TrackedApp } from '@/services/storage';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
-interface TrackedApp {
-  id: number;
-  name: string;
-  packageName: string;
-  timeLimit: number;
-}
-
-// NEW INTERFACE to track the last known total time from the native tracker
 interface NativeUsageTracker {
-    [packageName: string]: number; // Stores last reported totalTimeInForeground (in seconds)
+  [packageName: string]: number;
 }
 
-const MAX_APPS = 5;
+const MAX_APPS = 10;
+
+const POPULAR_PACKAGES = [
+  { pkg: 'com.google.android.youtube', name: 'YouTube' },
+  { pkg: 'com.instagram.android', name: 'Instagram' },
+  { pkg: 'com.facebook.katana', name: 'Facebook' },
+  { pkg: 'com.zhiliaoapp.musically', name: 'TikTok' },
+  { pkg: 'com.twitter.android', name: 'X (Twitter)' },
+  { pkg: 'com.snapchat.android', name: 'Snapchat' },
+  { pkg: 'com.whatsapp', name: 'WhatsApp' }
+];
 
 export const MyApps = () => {
-  const { user, loading } = useAuth();
   const [trackedApps, setTrackedApps] = useState<TrackedApp[]>([]);
   const [appsLoading, setAppsLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { toast } = useToast();
-  const { isSupported, getAppUsageStats } = useAppUsageTracking();
+  const { isSupported, getAppUsageStats, installedApps, loadInstalledApps } = useAppUsageTracking();
   const isNativePlatform = Capacitor.getPlatform() === 'android';
-
-  const { startSession, endSession } = useSessionTracking(user?.id); // <-- ADDED HOOK
   const { activeTimers, triggerNativeBreak } = useTimer();
-  
-  // NEW STATE: Tracks the last time logged to prevent double counting
-  const [lastLoggedUsage, setLastLoggedUsage] = useState<NativeUsageTracker>({}); 
+  const [lastLoggedUsage, setLastLoggedUsage] = useState<NativeUsageTracker>({});
 
   useEffect(() => {
-    if (user) {
-      fetchTrackedApps();
-    } else if (!loading) {
-      setAppsLoading(false);
+    fetchTrackedApps();
+    if (isSupported) {
+      loadInstalledApps();
     }
-  }, [user, loading]);
+    if (isNativePlatform) {
+      LocalNotifications.requestPermissions();
+    }
+  }, [isSupported, isNativePlatform]);
 
-  const fetchTrackedApps = async () => {
-    if (!user) {
-      setAppsLoading(false);
-      return;
-    }
-    
+  const fetchTrackedApps = () => {
     try {
       setAppsLoading(true);
-      const { data, error } = await supabase
-        .from('user_apps')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(MAX_APPS);
-
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
-      }
-
-      if (data && data.length > 0) {
-        const apps: TrackedApp[] = data.map(app => ({
-          id: app.app_id,
-          name: app.name,
-          packageName: app.url, // Using URL field to store package name
-          timeLimit: app.time_limit
-        }));
-        setTrackedApps(apps);
-      } else {
-        setTrackedApps([]);
-      }
+      const apps = LocalStorage.getTrackedApps();
+      setTrackedApps(apps);
     } catch (error) {
       console.error('Error fetching tracked apps:', error);
-      setTrackedApps([]);
       toast({
         title: "Error loading apps",
         description: "Could not load your tracked apps.",
@@ -95,107 +66,81 @@ export const MyApps = () => {
     }
   };
 
-
-  // MODIFIED: Polling logic to sync native app usage and record time
   useEffect(() => {
-    if (!user || trackedApps.length === 0 || !isSupported) return;
-
+    if (trackedApps.length === 0 || !isSupported) return;
     const packageNames = trackedApps.map(app => app.packageName);
-    
-    const syncNativeAppUsage = async () => {
-      // Query usage stats for the entire day (1 day)
-      const stats = await getAppUsageStats(packageNames, 1); 
-      
+    const checkLimits = async () => {
+      const stats = await getAppUsageStats(packageNames, 1);
       const newLastLoggedUsage = { ...lastLoggedUsage };
-
       for (const app of trackedApps) {
         const appStats = stats[app.packageName];
-        // Convert total foreground time from ms to seconds
         const currentTimeUsedSeconds = Math.round((appStats?.totalTimeInForeground || 0) / 1000);
         const timeLimitSeconds = app.timeLimit * 60;
-        
-        // Determine how much NEW time has been used since the last check
         const lastKnownUsage = lastLoggedUsage[app.packageName] || currentTimeUsedSeconds;
-        const incrementalTime = currentTimeUsedSeconds - lastKnownUsage;
 
-        // --------------------------------------------------------
-        // 1. LOGGING USAGE TIME (Creates/Ends a session for the last 30 seconds)
-        // --------------------------------------------------------
-        if (incrementalTime > 0) {
-            // A. Start a temporary session to get a session ID
-            const sessionId = await startSession(app.id, app.name);
-            
-            if (sessionId) {
-                // B. End the session immediately with the incremental duration.
-                // NOTE: endSession logs the time and updates stats/streaks.
-                await endSession(sessionId, incrementalTime); 
-                
-                // C. Update the last logged time to prevent double counting next time.
-                newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds; 
-            }
-        }
-        
-        // --------------------------------------------------------
-        // 2. ENFORCEMENT (Triggering a Break if limit is exceeded)
-        // --------------------------------------------------------
         if (currentTimeUsedSeconds >= timeLimitSeconds) {
-            // Check if the app just crossed the limit now
-            if (lastKnownUsage < timeLimitSeconds) {
-              if (activeTimers.has(app.id)) {
-                  // If a manual timer (web-based) is running, force the break.
-                  triggerNativeBreak(app.id); 
-              } else { 
-                  // App just crossed the limit, and no manual timer was running.
-                  toast({
-                      title: `Limit Exceeded for ${app.name}`,
-                      description: `You've used all your allotted ${app.timeLimit} minutes today.`,
-                      variant: 'destructive',
-                      duration: 5000 
-                  });
-              }
+          if (lastKnownUsage < timeLimitSeconds) {
+            if (activeTimers.has(app.id)) {
+              triggerNativeBreak(app.id);
+            } else {
+              // Trigger Local Notification for background alert
+              LocalNotifications.schedule({
+                notifications: [{
+                  title: `Limit Exceeded: ${app.name}`,
+                  body: `You've used your ${app.timeLimit} min limit for today.`,
+                  id: Math.floor(Math.random() * 100000),
+                  schedule: { at: new Date(Date.now()) },
+                  smallIcon: 'ic_stat_icon_config_sample',
+                }]
+              }).catch(e => console.error('Notification error:', e));
+
+              toast({
+                title: `Limit Exceeded for ${app.name}`,
+                description: `You've used all your allotted ${app.timeLimit} minutes today.`,
+                variant: 'destructive',
+                duration: 5000
+              });
             }
-            // Ensure the tracker reflects current usage even after the limit is hit
-            newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds;
-        } else {
-             // If not over the limit, just set the new usage time
-             newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds;
+          }
         }
+        newLastLoggedUsage[app.packageName] = currentTimeUsedSeconds;
       }
-      
-      // Update the state for the next interval check
-      setLastLoggedUsage(newLastLoggedUsage); 
+      setLastLoggedUsage(newLastLoggedUsage);
     };
-
-    syncNativeAppUsage();
-    const interval = setInterval(syncNativeAppUsage, 30000); 
-
+    checkLimits();
+    const interval = setInterval(checkLimits, 30000);
     return () => clearInterval(interval);
-  }, [user, trackedApps, isSupported, activeTimers, triggerNativeBreak, getAppUsageStats, toast, lastLoggedUsage, startSession, endSession]);
-  
+  }, [trackedApps, isSupported, activeTimers, triggerNativeBreak, getAppUsageStats, toast, lastLoggedUsage]);
 
   const handleAddApps = async (selectedApps: InstalledApp[]) => {
-    if (!user) return;
-
     try {
-      const appsToInsert = selectedApps.map((app, index) => ({
-        user_id: user.id,
-        app_id: Date.now() + index, // Generate unique ID
-        name: app.appName,
-        url: app.packageName, // Store package name in URL field
-        icon: 'Smartphone',
-        time_limit: 30, // Default 30 minutes
-        is_active: false
-      }));
-
-      const { error } = await supabase
-        .from('user_apps')
-        .insert(appsToInsert);
-
-      if (error) throw error;
-
-      await fetchTrackedApps();
+      const packageNames = selectedApps.map(a => a.packageName);
+      let currentUsage: Record<string, any> = {};
+      if (isSupported) {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        currentUsage = await getAppUsageStats(packageNames, startOfDay.getTime());
+      }
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      selectedApps.forEach((app, index) => {
+        const appStats = currentUsage[app.packageName];
+        const currentSeconds = appStats ? Math.floor(appStats.totalTimeInForeground / 1000) : 0;
+        const newApp: TrackedApp = {
+          id: (Date.now() + index).toString(),
+          name: app.appName,
+          packageName: app.packageName,
+          timeLimit: 30,
+          usageOffset: currentSeconds,
+          usageOffsetDate: todayStr
+        };
+        LocalStorage.addTrackedApp(newApp);
+      });
+      fetchTrackedApps();
       setShowAddDialog(false);
-      
       toast({
         title: "Apps added!",
         description: `${selectedApps.length} ${selectedApps.length === 1 ? 'app' : 'apps'} added for tracking.`
@@ -210,20 +155,38 @@ export const MyApps = () => {
     }
   };
 
-  const handleDeleteApp = async (appId: number) => {
-    if (!user) return;
+  const scanForPopularApps = () => {
+    if (installedApps.length === 0) {
+      toast({ title: "Scanning...", description: "Please wait while we load your apps." });
+      loadInstalledApps();
+      return;
+    }
+    const foundApps: InstalledApp[] = [];
+    POPULAR_PACKAGES.forEach(pop => {
+      const isInstalled = installedApps.find(app => app.packageName === pop.pkg);
+      const isTracked = trackedApps.find(app => app.packageName === pop.pkg);
+      if (isInstalled && !isTracked) {
+        foundApps.push(isInstalled);
+      }
+    });
+    if (foundApps.length > 0) {
+      handleAddApps(foundApps);
+      toast({
+        title: "Popular Apps Found",
+        description: `Added ${foundApps.map(a => a.appName).join(', ')} to your tracking list.`
+      });
+    } else {
+      toast({
+        title: "No new popular apps found",
+        description: "You're already tracking the popular apps we detected, or they aren't installed."
+      });
+    }
+  };
 
+  const handleDeleteApp = async (packageName: string) => {
     try {
-      const { error } = await supabase
-        .from('user_apps')
-        .delete()
-        .eq('app_id', appId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      await fetchTrackedApps();
-      
+      LocalStorage.removeTrackedApp(packageName);
+      fetchTrackedApps();
       toast({
         title: "App removed",
         description: "App has been removed from tracking."
@@ -238,21 +201,11 @@ export const MyApps = () => {
     }
   };
 
-  if (loading || appsLoading) {
+  if (appsLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-muted-foreground">Loading your apps...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 space-y-4">
-        <Smartphone className="h-16 w-16 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Sign in required</h2>
-        <p className="text-muted-foreground">Please sign in to track your apps</p>
       </div>
     );
   }
@@ -271,18 +224,26 @@ export const MyApps = () => {
             Tracked Apps
           </h1>
           <p className="text-muted-foreground">
-            {isNativePlatform 
+            {isNativePlatform
               ? `Tracking ${trackedApps.length} of ${MAX_APPS} apps automatically`
               : 'Native app tracking requires Android mobile app'
             }
           </p>
         </div>
-        {canAddMore && isNativePlatform && (
-          <Button onClick={() => setShowAddDialog(true)} size="lg">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Apps ({trackedApps.length}/{MAX_APPS})
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {isNativePlatform && (
+            <Button onClick={scanForPopularApps} variant="outline" size="sm" className="hidden md:flex">
+              <Search className="w-4 h-4 mr-2" />
+              Scan Popular
+            </Button>
+          )}
+          {canAddMore && isNativePlatform && (
+            <Button onClick={() => setShowAddDialog(true)} size="lg">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Apps
+            </Button>
+          )}
+        </div>
       </motion.div>
 
       {!isNativePlatform && (
@@ -306,17 +267,25 @@ export const MyApps = () => {
           <Smartphone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold">No Apps Tracked Yet</h3>
           <p className="text-muted-foreground mb-4">
-            {isNativePlatform 
+            {isNativePlatform
               ? 'Add apps from your device to start tracking screen time automatically'
               : 'Install the mobile app to track your device apps'
             }
           </p>
-          {canAddMore && isNativePlatform && (
-            <Button onClick={() => setShowAddDialog(true)} size="lg">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Your First App
-            </Button>
-          )}
+          <div className="flex gap-4 justify-center">
+            {isNativePlatform && (
+              <Button onClick={scanForPopularApps} variant="outline" size="lg">
+                <Search className="w-4 h-4 mr-2" />
+                Scan Popular Apps
+              </Button>
+            )}
+            {canAddMore && isNativePlatform && (
+              <Button onClick={() => setShowAddDialog(true)} size="lg">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First App
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -327,14 +296,14 @@ export const MyApps = () => {
               appName={app.name}
               packageName={app.packageName}
               timeLimit={app.timeLimit}
-              onDelete={handleDeleteApp}
+              onDelete={() => handleDeleteApp(app.packageName)}
             />
           ))}
         </div>
       )}
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Add Apps to Track</DialogTitle>
             <DialogDescription>

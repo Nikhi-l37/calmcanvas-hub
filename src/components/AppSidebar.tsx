@@ -1,5 +1,5 @@
-import { LayoutDashboard, Smartphone, Target, BarChart3, Flame, LogOut, UserCircle } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Smartphone, Target, BarChart3, Flame, UserCircle } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -11,46 +11,40 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
+import { LocalStorage } from '@/services/storage';
 
 const items = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'My Apps', url: '/apps', icon: Smartphone },
   { title: 'Streaks', url: '/streaks', icon: Flame },
-  { title: 'Goals', url: '/goals', icon: Target },
   { title: 'Statistics', url: '/statistics', icon: BarChart3 },
-  { title: 'Profile', url: '/profile', icon: UserCircle },
+  { title: 'Settings', url: '/profile', icon: UserCircle },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const collapsed = state === 'collapsed';
+  const settings = LocalStorage.getSettings();
+  const name = settings.name;
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-primary/10 text-primary font-semibold border-l-4 border-primary' : 'hover:bg-muted/50';
 
-  const handleSignOut = async () => {
-    await signOut();
-    toast({
-      title: 'Signed out',
-      description: 'You have been signed out successfully.',
-    });
-    navigate('/auth');
-  };
-
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'}>
-      <SidebarContent>
+      <SidebarContent className="pl-safe">
         <div className="p-4 border-b border-border">
           {!collapsed && (
-            <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Screen Coach
-            </h2>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                {name ? `Welcome, ${name}` : 'Screen Coach'}
+              </h2>
+              {name && (
+                <p className="text-xs text-muted-foreground">
+                  Screen Coach
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -71,18 +65,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <div className="mt-auto p-4 border-t border-border">
-          <Button 
-            onClick={handleSignOut} 
-            variant="outline" 
-            className="w-full justify-start"
-            size={collapsed ? 'icon' : 'default'}
-          >
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="ml-3">Sign Out</span>}
-          </Button>
-        </div>
       </SidebarContent>
     </Sidebar>
   );

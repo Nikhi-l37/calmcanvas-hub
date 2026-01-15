@@ -1,154 +1,77 @@
 import { useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { LocalStorage } from '@/services/storage';
+
+interface ActiveSession {
+  id: string;
+  appId: string;
+  appName: string;
+  startTime: Date;
+}
 
 export const useSessionTracking = (userId: string | undefined) => {
-  const currentSessionRef = useRef<string | null>(null);
+  // We don't use userId anymore but keep the signature for compatibility
+  const currentSessionRef = useRef<ActiveSession | null>(null);
   const { toast } = useToast();
 
-  const startSession = useCallback(async (appId: number, appName: string): Promise<string | null> => {
-    if (!userId) return null;
+  const startSession = useCallback(async (appId: string, appName: string): Promise<string | null> => {
+    const sessionId = Date.now().toString();
+    currentSessionRef.current = {
+      id: sessionId,
+      appId: appId.toString(), // Ensure string
+      appName,
+      startTime: new Date()
+    };
+    return sessionId;
+  }, []);
 
-    try {
-      const { data, error } = await supabase
-        .from('app_sessions')
-        .insert({
-          user_id: userId,
-          app_id: appId,
-          app_name: appName,
-        })
-        .select('id')
-        .single();
+  const endSession = useCallback(async (sessionId?: string, forcedDurationSeconds?: number) => {
+    const session = currentSessionRef.current;
+    if (!session && !sessionId) return;
 
-      if (error) throw error;
-      return data.id;
-    } catch (error) {
-      console.error('Error starting session:', error);
-      return null;
-    }
-  }, [userId]);
+    // If a specific sessionId is provided but doesn't match current, we can't really do much 
+    // without a persistent session store. For now, we assume single active session.
+    if (sessionId && session && session.id !== sessionId) return;
 
-  // MODIFIED: Accepts an optional forcedDurationSeconds argument to log native usage.
-  const endSession = useCallback(async (sessionId?: string, forcedDurationSeconds?: number) => { 
-    if (!userId) return;
-    if (!sessionId && !currentSessionRef.current) return;
+    if (session) {
+      let durationSeconds: number;
 
-    try {
-      const targetSessionId = sessionId || currentSessionRef.current;
-      
-      // Get session details
-      const { data: session } = await supabase
-        .from('app_sessions')
-        .select('start_time, app_id, app_name')
-        .eq('id', targetSessionId)
-        .single();
+      if (forcedDurationSeconds !== undefined) {
+        durationSeconds = forcedDurationSeconds;
+      } else {
+        const endTime = new Date();
+        durationSeconds = Math.round((endTime.getTime() - session.startTime.getTime()) / 1000);
+      }
 
-      if (session) {
-        let durationSeconds: number;
-        
-        if (forcedDurationSeconds !== undefined) { 
-          // Use the duration calculated by the native tracker polling loop
-          durationSeconds = forcedDurationSeconds;
-        } else {
-          // Fallback to original calculation for web timers
-          const endTime = new Date();
-          const startTime = new Date(session.start_time);
-          durationSeconds = Math.round((endTime.getTime() - startTime.getTime()) / 1000); 
-        }
-
-        const timeToAdd = durationSeconds > 0 ? durationSeconds : 0; 
-
-        // Update session
-        await supabase
-          .from('app_sessions')
-          .update({
-            end_time: new Date().toISOString(),
-            duration_seconds: timeToAdd,
-          })
-          .eq('id', targetSessionId);
-
-        // Update daily stats (uses timeToAdd)
+      if (durationSeconds > 0) {
         const today = new Date().toISOString().split('T')[0];
-        const { data: existingStats } = await supabase
-          .from('daily_stats')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', today)
-          .maybeSingle();
+        const dailyUsage = LocalStorage.getDailyUsage(today) || {
+          date: today,
+          totalTime: 0,
+          apps: {}
+        };
 
-        if (existingStats) {
-          // Check if this is a new app for today
-          const { data: todaySessions } = await supabase
-            .from('app_sessions')
-            .select('app_id')
-            .eq('user_id', userId)
-            .gte('start_time', `${today}T00:00:00`)
-            .lt('start_time', `${today}T23:59:59`);
-          
-          const uniqueApps = new Set(todaySessions?.map(s => s.app_id) || []);
-          
-          await supabase
-            .from('daily_stats')
-            .update({
-              total_time_seconds: existingStats.total_time_seconds + timeToAdd,
-              apps_used: uniqueApps.size,
-            })
-            .eq('id', existingStats.id);
-        } else if (timeToAdd > 0) { // Only insert if there's time to add
-          await supabase
-            .from('daily_stats')
-            .insert({
-              user_id: userId,
-              date: today,
-              total_time_seconds: timeToAdd,
-              apps_used: 1,
-              breaks_taken: 0,
-            });
-        }
-        
-        // Update streak (only if time was added)
-        if (timeToAdd > 0) {
-            await updateStreak(userId, today);
-        }
+        dailyUsage.totalTime += durationSeconds;
+        dailyUsage.apps[session.appName] = (dailyUsage.apps[session.appName] || 0) + durationSeconds;
+
+        LocalStorage.saveDailyUsage(dailyUsage);
       }
 
-      if (!sessionId) {
-        currentSessionRef.current = null;
-      }
-    } catch (error) {
-      console.error('Error ending session:', error);
+      currentSessionRef.current = null;
     }
-  }, [userId]);
+  }, []);
 
   const recordBreak = useCallback(async (durationSeconds: number, activityType?: string) => {
-    if (!userId) return;
-
     try {
-      await supabase
-        .from('breaks')
-        .insert({
-          user_id: userId,
-          duration_seconds: durationSeconds,
-          activity_type: activityType,
-        });
-
-      // Update daily stats
       const today = new Date().toISOString().split('T')[0];
-      const { data: existingStats } = await supabase
-        .from('daily_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', today)
-        .maybeSingle();
+      const breakItem = {
+        id: Date.now().toString(),
+        duration_seconds: durationSeconds,
+        activity_type: activityType || 'break',
+        break_time: new Date().toISOString()
+      };
 
-      if (existingStats) {
-        await supabase
-          .from('daily_stats')
-          .update({
-            breaks_taken: existingStats.breaks_taken + 1,
-          })
-          .eq('id', existingStats.id);
-      }
+      LocalStorage.saveBreak(breakItem);
 
       toast({
         title: 'Break Recorded',
@@ -157,7 +80,7 @@ export const useSessionTracking = (userId: string | undefined) => {
     } catch (error) {
       console.error('Error recording break:', error);
     }
-  }, [userId, toast]);
+  }, [toast]);
 
   return {
     startSession,
@@ -165,63 +88,3 @@ export const useSessionTracking = (userId: string | undefined) => {
     recordBreak,
   };
 };
-
-async function updateStreak(userId: string, today: string) {
-  const { data: streak } = await supabase
-    .from('user_streaks')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-  if (!streak) {
-    // Create new streak
-    await supabase
-      .from('user_streaks')
-      .insert({
-        user_id: userId,
-        current_streak: 1,
-        longest_streak: 1,
-        highest_streak: 1,
-        last_activity_date: today,
-      });
-  } else {
-    const lastActivity = streak.last_activity_date;
-    let newStreak = streak.current_streak;
-
-    if (lastActivity === yesterdayStr) {
-      // Continue streak
-      newStreak += 1;
-    } else if (lastActivity !== today) {
-      // Reset streak if more than 1 day gap
-      newStreak = 1;
-    }
-
-    const newHighestStreak = Math.max(newStreak, streak.highest_streak || 0);
-
-    await supabase
-      .from('user_streaks')
-      .update({
-        current_streak: newStreak,
-        longest_streak: Math.max(newStreak, streak.longest_streak),
-        highest_streak: newHighestStreak,
-        last_activity_date: today,
-      })
-      .eq('user_id', userId);
-  }
-
-  // Update daily completions
-  await supabase
-    .from('daily_completions')
-    .upsert({
-      user_id: userId,
-      date: today,
-      completed: true,
-      total_time_seconds: 60, // Mark as completed with at least 1 minute
-    }, {
-      onConflict: 'user_id,date'
-    });
-}

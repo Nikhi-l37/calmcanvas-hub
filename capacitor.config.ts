@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.efbe28a2ea794dd8a955a30390665a53',
-  appName: 'calmcanvas-hub',
+  appId: 'com.digitalwellbeing.app',
+  appName: 'Digital Wellbeing',
   webDir: 'dist',
   android: {
     allowMixedContent: true

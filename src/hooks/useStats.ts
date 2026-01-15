@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { LocalStorage } from '@/services/storage';
 import { useToast } from '@/hooks/use-toast';
 
 export interface UserStats {
@@ -14,7 +14,7 @@ export interface UserStats {
   weeklyProgress: number[];
 }
 
-export const useStats = (userId: string | undefined) => {
+export const useStats = () => {
   const [stats, setStats] = useState<UserStats>({
     totalTimeToday: 0,
     appsUsedToday: 0,
@@ -29,73 +29,60 @@ export const useStats = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!userId) return;
+  const [dailyBreakGoal, setDailyBreakGoal] = useState(5);
 
-    const fetchStats = async () => {
+  useEffect(() => {
+    const fetchStats = () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        // Helper to get local YYYY-MM-DD string
+        const getLocalDateString = (date: Date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+
+        const today = getLocalDateString(new Date());
+
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yesterdayDate);
 
         // Fetch today's stats
-        const { data: dailyStats } = await supabase
-          .from('daily_stats')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', today)
-          .maybeSingle();
+        const dailyStats = LocalStorage.getDailyUsage(today);
+        const todayBreaks = LocalStorage.getBreaks(today);
 
         // Fetch yesterday's stats
-        const { data: yesterdayStats } = await supabase
-          .from('daily_stats')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', yesterdayStr)
-          .maybeSingle();
+        const yesterdayStats = LocalStorage.getDailyUsage(yesterdayStr);
+        const yesterdayBreaks = LocalStorage.getBreaks(yesterdayStr);
 
         // Fetch streak
-        const { data: streakData } = await supabase
-          .from('user_streaks')
-          .select('current_streak, highest_streak')
-          .eq('user_id', userId)
-          .maybeSingle();
+        const streak = LocalStorage.getStreak();
+
+        // Fetch settings
+        const settings = LocalStorage.getSettings();
+        setDailyBreakGoal(settings.dailyBreakGoal || 5);
 
         // Fetch weekly progress (last 7 days including today)
-        const dates = [];
+        const weeklyProgress = [];
         for (let i = 6; i >= 0; i--) {
           const date = new Date();
           date.setDate(date.getDate() - i);
-          dates.push(date.toISOString().split('T')[0]);
+          const dateStr = getLocalDateString(date);
+          const dayStats = LocalStorage.getDailyUsage(dateStr);
+          weeklyProgress.push(dayStats ? Math.round(dayStats.totalTime / 60) : 0);
         }
 
-        const { data: weeklyData } = await supabase
-          .from('daily_stats')
-          .select('total_time_seconds, date')
-          .eq('user_id', userId)
-          .in('date', dates)
-          .order('date', { ascending: true });
-
-        // Create a map for quick lookup
-        const dataMap = new Map(weeklyData?.map(d => [d.date, d.total_time_seconds]) || []);
-        
-        // Ensure we have data for all 7 days (fill missing days with 0)
-        const weeklyProgress = dates.map(date => {
-          const seconds = dataMap.get(date) || 0;
-          return Math.round(seconds / 60);
-        });
-
         setStats({
-          totalTimeToday: dailyStats?.total_time_seconds || 0,
-          appsUsedToday: dailyStats?.apps_used || 0,
-          breaksToday: dailyStats?.breaks_taken || 0,
-          totalTimeYesterday: yesterdayStats?.total_time_seconds || 0,
-          appsUsedYesterday: yesterdayStats?.apps_used || 0,
-          breaksYesterday: yesterdayStats?.breaks_taken || 0,
-          streak: streakData?.current_streak || 0,
-          highestStreak: streakData?.highest_streak || 0,
-          weeklyProgress: weeklyProgress.slice(-7),
+          totalTimeToday: dailyStats?.totalTime || 0,
+          appsUsedToday: dailyStats ? Object.keys(dailyStats.apps).length : 0,
+          breaksToday: todayBreaks.length,
+          totalTimeYesterday: yesterdayStats?.totalTime || 0,
+          appsUsedYesterday: yesterdayStats ? Object.keys(yesterdayStats.apps).length : 0,
+          breaksYesterday: yesterdayBreaks.length,
+          streak: streak,
+          highestStreak: streak, // Simplified for now
+          weeklyProgress: weeklyProgress,
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -111,35 +98,10 @@ export const useStats = (userId: string | undefined) => {
 
     fetchStats();
 
-    // Set up realtime subscription for stats updates
-    const channel = supabase
-      .channel('stats-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_stats',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => fetchStats()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_streaks',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => fetchStats()
-      )
-      .subscribe();
+    // Poll for updates (since we don't have realtime subscription anymore)
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
+  }, [toast]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, toast]);
-
-  return { stats, loading };
+  return { stats, loading, dailyBreakGoal };
 };

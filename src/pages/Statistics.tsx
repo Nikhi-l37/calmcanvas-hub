@@ -1,14 +1,21 @@
 import { motion } from 'framer-motion';
-import { useAuth } from '@/hooks/useAuth';
 import { useStats } from '@/hooks/useStats';
 import { Card } from '@/components/ui/card';
 import { Loader2, TrendingUp, Calendar, Award } from 'lucide-react';
+import { ProgressTracker } from '@/components/ProgressTracker';
+import { LocalStorage } from '@/services/storage';
+import { useEffect, useState } from 'react';
 
 export const Statistics = () => {
-  const { user, loading } = useAuth();
-  const { stats, loading: statsLoading } = useStats(user?.id);
+  const { stats, loading } = useStats();
+  const [dailyGoal, setDailyGoal] = useState(120);
 
-  if (loading || statsLoading) {
+  useEffect(() => {
+    const settings = LocalStorage.getSettings();
+    setDailyGoal(settings.dailyGoal);
+  }, []);
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -17,6 +24,20 @@ export const Statistics = () => {
   }
 
   const maxWeeklyTime = Math.max(...stats.weeklyProgress, 1);
+
+  // Generate day labels for the last 7 days
+  const getDayLabels = () => {
+    const labels = [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      labels.push(days[d.getDay()]);
+    }
+    return labels;
+  };
+
+  const dayLabels = getDayLabels();
 
   return (
     <div className="space-y-6">
@@ -71,11 +92,19 @@ export const Statistics = () => {
         </Card>
       </div>
 
+      <ProgressTracker
+        totalTimeToday={stats.totalTimeToday}
+        breaksToday={stats.breaksToday}
+        streak={stats.streak}
+        dailyGoal={dailyGoal}
+        weeklyProgress={stats.weeklyProgress}
+      />
+
       <Card className="p-6">
         <h3 className="text-xl font-semibold mb-6">Weekly Activity</h3>
         <div className="space-y-4">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
-            <div key={day} className="flex items-center gap-4">
+          {dayLabels.map((day, index) => (
+            <div key={index} className="flex items-center gap-4">
               <span className="w-12 text-sm font-medium text-muted-foreground">{day}</span>
               <div className="flex-1 h-8 bg-muted/30 rounded-lg overflow-hidden">
                 <motion.div

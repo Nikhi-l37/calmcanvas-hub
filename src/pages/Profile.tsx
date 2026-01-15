@@ -1,93 +1,61 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Loader2, Edit2, Check, X } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { User, Settings as SettingsIcon, Trash2, Check, X, Loader2, Edit2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { LocalStorage, UserSettings } from '@/services/storage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Profile = () => {
-  const { user, loading } = useAuth();
   const { toast } = useToast();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [settings, setSettings] = useState<UserSettings>({ dailyGoal: 120, theme: 'system' });
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
-      setEmail(user.email || '');
-    }
-  }, [user]);
+    loadSettings();
+  }, []);
 
-  const fetchProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setName(data.name || '');
-        setEditedName(data.name || '');
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
+  const loadSettings = () => {
+    const savedSettings = LocalStorage.getSettings();
+    setSettings(savedSettings);
+    setEditedName(savedSettings.name || '');
   };
 
-  const handleSave = async () => {
-    if (!user) return;
-
-    try {
-      setSaving(true);
-      const { error } = await supabase
-        .from('profiles')
-        .update({ name: editedName })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setName(editedName);
-      setIsEditing(false);
-      toast({
-        title: "Profile updated",
-        description: "Your name has been updated successfully."
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: "Error",
-        description: "Could not update profile. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setEditedName(name);
+  const handleSaveName = () => {
+    const newSettings = { ...settings, name: editedName };
+    LocalStorage.saveSettings(newSettings);
+    setSettings(newSettings);
     setIsEditing(false);
+    toast({
+      title: "Settings updated",
+      description: "Your name has been updated successfully."
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleClearData = () => {
+    LocalStorage.clearAll();
+    toast({
+      title: "Data cleared",
+      description: "All your data has been reset.",
+      variant: "destructive"
+    });
+    // Reload to reset state
+    window.location.reload();
+  };
 
   return (
     <div className="space-y-6">
@@ -96,10 +64,10 @@ export const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-          Profile
+          Settings
         </h1>
         <p className="text-muted-foreground">
-          Manage your profile information
+          Manage your app preferences and data
         </p>
       </motion.div>
 
@@ -108,86 +76,95 @@ export const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <Card className="p-6 max-w-2xl">
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 pb-6 border-b border-border">
-              <div className="p-4 rounded-full bg-primary/10">
-                <User className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-semibold">{name || 'User'}</h2>
-                <p className="text-sm text-muted-foreground">{email}</p>
-              </div>
+        <Card className="p-6 max-w-2xl space-y-8">
+
+          {/* Profile Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-border">
+              <User className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">Profile</h2>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Name
-                </Label>
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <Input
-                      id="name"
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      placeholder="Enter your name"
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleSave}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={handleCancel}
-                      disabled={saving}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      id="name"
-                      value={name || 'Not set'}
-                      disabled
-                    />
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  value={email}
-                  disabled
-                />
-                <p className="text-xs text-muted-foreground">
-                  Email cannot be changed
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Your Name</Label>
+              {isEditing ? (
+                <div className="flex gap-2">
+                  <Input
+                    id="name"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    placeholder="Enter your name"
+                  />
+                  <Button size="icon" onClick={handleSaveName}>
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="outline" onClick={() => setIsEditing(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    id="name"
+                    value={settings.name || 'User'}
+                    disabled
+                  />
+                  <Button size="icon" variant="outline" onClick={() => setIsEditing(true)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                This name will be used to greet you on the dashboard.
+              </p>
             </div>
           </div>
+
+          {/* Data Management Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-border">
+              <SettingsIcon className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">Data Management</h2>
+            </div>
+
+            <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-2 rounded-full bg-destructive/10">
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-destructive">Clear All Data</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This will permanently delete all your tracked apps, usage history, streaks, and settings. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full sm:w-auto">
+                    Reset App Data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your
+                      local data and reset the application to its initial state.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Yes, delete everything
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+
         </Card>
       </motion.div>
     </div>

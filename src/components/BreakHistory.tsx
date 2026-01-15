@@ -2,15 +2,7 @@ import { motion } from 'framer-motion';
 import { Coffee, Activity, Brain, Users } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-
-interface Break {
-  id: string;
-  duration_seconds: number;
-  activity_type: string | null;
-  break_time: string;
-}
+import { LocalStorage, Break } from '@/services/storage';
 
 const activityIcons: Record<string, any> = {
   physical: Activity,
@@ -20,51 +12,23 @@ const activityIcons: Record<string, any> = {
 };
 
 export const BreakHistory = () => {
-  const { user } = useAuth();
   const [breaks, setBreaks] = useState<Break[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchBreaks = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todaysBreaks = LocalStorage.getBreaks(today);
+    // Sort by time descending
+    todaysBreaks.sort((a, b) => new Date(b.break_time).getTime() - new Date(a.break_time).getTime());
+    setBreaks(todaysBreaks.slice(0, 5)); // Limit to 5
+    setLoading(false);
+  };
+
   useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchBreaks = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      
-      const { data } = await supabase
-        .from('breaks')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('break_time', `${today}T00:00:00`)
-        .order('break_time', { ascending: false })
-        .limit(5);
-
-      if (data) {
-        setBreaks(data);
-      }
-      setLoading(false);
-    };
-
     fetchBreaks();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('breaks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'breaks',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => fetchBreaks()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
+    const interval = setInterval(fetchBreaks, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return (
@@ -110,10 +74,10 @@ export const BreakHistory = () => {
         ) : (
           <div className="space-y-2">
             {breaks.map((breakItem, index) => {
-              const Icon = breakItem.activity_type 
+              const Icon = breakItem.activity_type
                 ? activityIcons[breakItem.activity_type] || Coffee
                 : Coffee;
-              
+
               return (
                 <motion.div
                   key={breakItem.id}

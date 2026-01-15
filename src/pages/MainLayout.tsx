@@ -1,100 +1,20 @@
-import { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { InstallPWAButton } from '@/components/InstallPWAButton';
-import { NotificationPermission } from '@/components/NotificationPermission';
-import { MotivationEngine } from '@/components/MotivationEngine';
-import { TimerDisplay } from '@/components/TimerDisplay';
 import { BreakOverlay } from '@/components/BreakOverlay';
-import { useAuth } from '@/hooks/useAuth';
 import { useTimer } from '@/contexts/TimerContext';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Loader2 } from 'lucide-react';
+import { useNativeAppTracking } from '@/hooks/useNativeAppTracking';
 
 export const MainLayout = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
   const {
     showBreak,
     currentBreakActivity,
     completeBreak,
   } = useTimer();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
-  // Exit notification
-  useEffect(() => {
-    let exitNotificationSent = false;
-
-    const sendExitNotification = async () => {
-      if (user?.email && !exitNotificationSent) {
-        exitNotificationSent = true;
-
-        try {
-          await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-exit-notification`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: user.email,
-                timestamp: new Date().toISOString(),
-              }),
-              keepalive: true,
-            }
-          );
-        } catch (error) {
-          console.error('Failed to send exit notification:', error);
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        sendExitNotification();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      sendExitNotification();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Redirecting to login...</p>
-        <button
-          onClick={() => navigate('/auth')}
-          className="mt-4 text-sm text-primary hover:underline"
-        >
-          Click here if not redirected
-        </button>
-      </div>
-    );
-  }
+  // Enable background tracking for native apps
+  useNativeAppTracking();
 
   return (
     <SidebarProvider>
@@ -102,7 +22,7 @@ export const MainLayout = () => {
         <AppSidebar />
 
         <div className="flex-1 flex flex-col">
-          <header className="h-16 border-b border-border flex items-center px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+          <header className="border-b border-border flex items-center px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top))]">
             <SidebarTrigger />
           </header>
 

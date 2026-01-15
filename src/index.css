@@ -12,51 +12,51 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 84% 7%;
     --popover-foreground: 210 40% 98%;
-    
+
     /* Brand colors */
     --primary: 189 100% 42%;
     --primary-foreground: 222 84% 5%;
     --primary-glow: 189 100% 55%;
-    
+
     --secondary: 240 6% 20%;
     --secondary-foreground: 210 40% 98%;
-    
+
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-    
+
     --accent: 142 76% 36%;
     --accent-foreground: 222 84% 5%;
-    
+
     /* Status colors */
     --success: 142 76% 36%;
     --warning: 45 93% 47%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    
+
     /* Interactive elements */
     --border: 217 33% 17%;
     --input: 217 33% 17%;
     --ring: 189 100% 42%;
     --radius: 0.75rem;
-    
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(189 100% 42%), hsl(189 100% 55%));
     --gradient-accent: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 45%));
     --gradient-warm: linear-gradient(135deg, hsl(45 93% 47%), hsl(25 95% 53%));
     --gradient-cool: linear-gradient(135deg, hsl(189 100% 42%), hsl(259 94% 51%));
     --gradient-surface: linear-gradient(135deg, hsl(222 84% 7%), hsl(217 33% 17%));
-    
+
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(222 84% 5% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(222 84% 5% / 0.1), 0 2px 4px -1px hsl(222 84% 5% / 0.06);
     --shadow-lg: 0 10px 15px -3px hsl(222 84% 5% / 0.1), 0 4px 6px -2px hsl(222 84% 5% / 0.05);
     --shadow-glow: 0 0 40px hsl(189 100% 42% / 0.3);
     --shadow-accent-glow: 0 0 30px hsl(142 76% 36% / 0.4);
-    
+
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    
+
     /* Typography */
     --font-heading: 'Inter', system-ui, sans-serif;
     --font-body: 'Inter', system-ui, sans-serif;
@@ -72,8 +72,13 @@
     @apply bg-background text-foreground font-body;
     font-feature-settings: 'cv01', 'cv02', 'cv03', 'cv04';
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading;
     font-feature-settings: 'cv01', 'cv02', 'cv03', 'cv04';
   }
@@ -83,15 +88,15 @@
   .app-card-hover {
     @apply transition-all duration-300 hover:scale-105 hover:-translate-y-2;
   }
-  
+
   .gradient-text {
     @apply bg-gradient-primary bg-clip-text text-transparent;
   }
-  
+
   .glass-card {
     @apply bg-card/80 backdrop-blur-md border border-border/50;
   }
-  
+
   .glow-effect {
     @apply shadow-glow;
   }
@@ -101,12 +106,28 @@
   .animation-delay-200 {
     animation-delay: 200ms;
   }
-  
+
   .animation-delay-400 {
     animation-delay: 400ms;
   }
-  
+
   .animation-delay-600 {
     animation-delay: 600ms;
+  }
+
+  .pl-safe {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .pr-safe {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .pt-safe {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }

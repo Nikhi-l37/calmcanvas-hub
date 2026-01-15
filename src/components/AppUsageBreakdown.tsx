@@ -3,78 +3,56 @@ import { Clock, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { LocalStorage } from '@/services/storage';
 
 interface AppSession {
   app_name: string;
-  app_id: number;
   duration_seconds: number;
 }
 
 export const AppUsageBreakdown = () => {
-  const { user } = useAuth();
   const [appSessions, setAppSessions] = useState<AppSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    const fetchAppUsage = () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
 
-    const fetchAppUsage = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      
-      const { data } = await supabase
-        .from('app_sessions')
-        .select('app_name, app_id, duration_seconds')
-        .eq('user_id', user.id)
-        .gte('start_time', `${today}T00:00:00`)
-        .lt('start_time', `${today}T23:59:59`)
-        .not('duration_seconds', 'is', null);
+      const dailyUsage = LocalStorage.getDailyUsage(todayStr);
 
-      if (data) {
-        // Aggregate by app_name
-        const aggregated = data.reduce((acc: Record<string, AppSession>, curr) => {
-          if (!acc[curr.app_name]) {
-            acc[curr.app_name] = {
-              app_name: curr.app_name,
-              app_id: curr.app_id,
-              duration_seconds: 0,
-            };
-          }
-          acc[curr.app_name].duration_seconds += curr.duration_seconds || 0;
-          return acc;
-        }, {});
+      if (dailyUsage && dailyUsage.apps) {
+        // Convert map to array
+        const sessions = Object.entries(dailyUsage.apps).map(([packageName, seconds]) => {
+          // Try to find app name from tracked apps
+          const trackedApps = LocalStorage.getTrackedApps();
+          const app = trackedApps.find(a => a.packageName === packageName);
+          return {
+            app_name: app ? app.name : packageName,
+            duration_seconds: seconds
+          };
+        });
 
-        const sorted = Object.values(aggregated)
+        const sorted = sessions
           .sort((a, b) => b.duration_seconds - a.duration_seconds)
           .slice(0, 5);
-        
+
         setAppSessions(sorted);
+      } else {
+        setAppSessions([]);
       }
       setLoading(false);
     };
 
     fetchAppUsage();
 
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('app-usage-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'app_sessions',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => fetchAppUsage()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
+    // Poll for updates
+    const interval = setInterval(fetchAppUsage, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return (
@@ -94,8 +72,10 @@ export const AppUsageBreakdown = () => {
   const totalTime = appSessions.reduce((acc, curr) => acc + curr.duration_seconds, 0);
 
   const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
-    if (mins < 60) return `${mins}m`;
+    const remainingSeconds = seconds % 60;
+    if (mins < 60) return `${mins}m ${remainingSeconds}s`;
     const hours = Math.floor(mins / 60);
     const remainingMins = mins % 60;
     return `${hours}h ${remainingMins}m`;

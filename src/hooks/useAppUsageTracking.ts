@@ -146,27 +146,33 @@ export const useAppUsageTracking = () => {
       // Default to 24 hours ago if no start time provided
       const actualStartTime = startTime || (endTime - (24 * 60 * 60 * 1000));
 
+      console.log(`[useAppUsageTracking] Querying usage stats from ${new Date(actualStartTime).toLocaleString()} to ${new Date(endTime).toLocaleString()}`);
+
       const stats = await UsageStatsManager.queryAndAggregateUsageStats({
-        intervalType: 0, // INTERVAL_DAILY
-        startTime: actualStartTime,
+        beginTime: actualStartTime,
         endTime
       });
+
+      console.log('[useAppUsageTracking] Raw stats received:', JSON.stringify(stats).substring(0, 500) + '...');
 
       const result: Record<string, AppUsageStats> = {};
 
       for (const packageName of packageNames) {
         if (stats[packageName]) {
+          console.log(`[useAppUsageTracking] Found stats for ${packageName}:`, stats[packageName]);
           result[packageName] = {
             packageName,
             totalTimeInForeground: stats[packageName].totalTimeInForeground || 0,
             lastTimeUsed: stats[packageName].lastTimeUsed || 0
           };
+        } else {
+          console.log(`[useAppUsageTracking] No stats found for ${packageName}`);
         }
       }
 
       return result;
     } catch (error) {
-      console.error('Error getting usage stats:', error);
+      console.error('[useAppUsageTracking] Error getting usage stats:', error);
       return {};
     }
   };
