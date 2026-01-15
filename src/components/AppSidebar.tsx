@@ -32,7 +32,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? 'w-14' : 'w-64'}>
-      <SidebarContent className="pl-safe">
+      <SidebarContent className="pt-safe">
         <div className="p-4 border-b border-border">
           {!collapsed && (
             <div className="space-y-1">
