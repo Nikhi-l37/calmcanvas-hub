@@ -60,7 +60,13 @@ If you encounter a white screen when running the app:
    ```
 
 2. **Clear cache and reinstall:**
+   
+   **⚠️ WARNING:** Before running these commands, make sure you are in the correct directory (`calmcanvas-hub`). The `rm -rf` command permanently deletes files.
+   
    ```bash
+   # Verify you're in the correct directory
+   pwd
+   
    # Remove node_modules and lock file
    rm -rf node_modules package-lock.json
    
@@ -70,8 +76,6 @@ If you encounter a white screen when running the app:
    # Or use regular install
    npm install
    ```
-   
-   **Note:** Be careful with `rm -rf` commands. Ensure you're in the correct directory.
 
 3. **Check browser console for errors:**
    Open Developer Tools (F12) and check the Console tab for any error messages.
@@ -89,7 +93,7 @@ If port 8080 is already in use, you can change it in `vite.config.ts`:
 ```typescript
 server: {
   host: "::",
-  port: 3000, // Change to your preferred port
+  port: 3000, // Change from 8080 to your preferred port
 },
 ```
 

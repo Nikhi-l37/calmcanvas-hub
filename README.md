@@ -123,7 +123,13 @@ If you encounter a white screen:
    ```
 
 2. **Clear cache and reinstall:**
+   
+   **⚠️ WARNING:** Before running these commands, make sure you are in the correct directory (`calmcanvas-hub`). The `rm -rf` command permanently deletes files.
+   
    ```sh
+   # Verify you're in the correct directory
+   pwd
+   
    # Remove node_modules and lock file
    rm -rf node_modules package-lock.json
    
@@ -133,8 +139,6 @@ If you encounter a white screen:
    # Or use regular install
    npm install
    ```
-   
-   **Note:** Be careful with `rm -rf` commands. Ensure you're in the correct directory.
 
 3. **Check for errors in browser console** (F12 → Console tab)
 
