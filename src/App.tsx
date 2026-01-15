@@ -33,7 +33,8 @@ const App = () => {
 
     window.addEventListener('user-login', handleLogin);
     return () => window.removeEventListener('user-login', handleLogin);
-  }, [isDev, hasName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isDev) {
     console.log('Screen Coach: Rendering app with hasName:', hasName);
