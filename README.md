@@ -1,8 +1,32 @@
-# Welcome to your Lovable project
+# Screen Coach Hub - Digital Wellbeing App
+
+A professional screen time management and wellness coaching application for families.
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/efbe28a2-ea79-4dd8-a955-a30390665a53
+
+## ⚠️ Important: Avoiding White Screen Issues
+
+**Before running the app, you MUST install dependencies:**
+
+```sh
+npm install
+```
+
+If you see a white screen when running the app, it's likely because dependencies are not installed. See the [Setup Guide](SETUP.md) for detailed troubleshooting steps.
+
+## Quick Start
+
+```sh
+# Install dependencies (REQUIRED - skip this and you'll get a white screen!)
+npm install
+
+# Start the development server
+npm run dev
+```
+
+The app will be available at `http://localhost:8080/`
 
 ## How can I edit this code?
 
@@ -29,12 +53,14 @@ git clone <YOUR_GIT_URL>
 # Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Step 3: Install the necessary dependencies (CRITICAL - DO NOT SKIP!)
+npm install
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+**Note:** If you skip Step 3 (npm install), the app will show a white screen. This is the most common issue users face.
 
 **Edit a file directly in GitHub**
 
@@ -54,11 +80,24 @@ npm run dev
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Vite - Fast build tool and dev server
+- TypeScript - Type-safe JavaScript
+- React 18 - UI framework
+- shadcn-ui - Component library
+- Tailwind CSS - Utility-first CSS
+- React Router - Client-side routing
+- Framer Motion - Animation library
+- LocalStorage - Data persistence (no backend required)
+
+## Features
+
+- 📊 **Screen Time Tracking** - Monitor your app usage
+- 🎯 **Daily Goals** - Set and track daily screen time limits
+- 🔥 **Streaks** - Build healthy habits with streak tracking
+- 📈 **Statistics** - View detailed usage analytics
+- ⏸️ **Break Reminders** - Take mindful breaks
+- 📱 **PWA Support** - Install as a mobile app
+- 🔒 **Privacy First** - All data stored locally, no server required
 
 ## How can I deploy this project?
 
@@ -71,3 +110,31 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Troubleshooting
+
+### White Screen Issue
+
+If you encounter a white screen:
+
+1. **Ensure dependencies are installed:**
+   ```sh
+   npm install
+   ```
+
+2. **Clear cache and reinstall:**
+   ```sh
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+3. **Check for errors in browser console** (F12 → Console tab)
+
+For more detailed troubleshooting, see [SETUP.md](SETUP.md)
+
+## Available Scripts
+
+- `npm run dev` - Start development server (port 8080)
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint code checks
