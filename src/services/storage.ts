@@ -142,7 +142,7 @@ export const LocalStorage = {
         };
 
         let streak = 0;
-        let checkDate = new Date();
+        const checkDate = new Date();
 
         // Check backwards from today
         while (true) {
