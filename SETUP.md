@@ -10,7 +10,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Nikhi-l37/calmcanvas-hub.git
 cd calmcanvas-hub
 ```
 
@@ -61,9 +61,17 @@ If you encounter a white screen when running the app:
 
 2. **Clear cache and reinstall:**
    ```bash
+   # Remove node_modules and lock file
    rm -rf node_modules package-lock.json
+   
+   # Clean install (recommended for consistent dependency resolution)
+   npm ci
+   
+   # Or use regular install
    npm install
    ```
+   
+   **Note:** Be careful with `rm -rf` commands. Ensure you're in the correct directory.
 
 3. **Check browser console for errors:**
    Open Developer Tools (F12) and check the Console tab for any error messages.

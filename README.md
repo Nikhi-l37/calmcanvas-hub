@@ -19,7 +19,7 @@ If you see a white screen when running the app, it's likely because dependencies
 ## Quick Start
 
 ```sh
-# Install dependencies (REQUIRED - skip this and you'll get a white screen!)
+# Install dependencies (required to avoid white screen)
 npm install
 
 # Start the development server
@@ -51,16 +51,16 @@ Follow these steps:
 git clone <YOUR_GIT_URL>
 
 # Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+cd calmcanvas-hub
 
-# Step 3: Install the necessary dependencies (CRITICAL - DO NOT SKIP!)
+# Step 3: Install the necessary dependencies (required for the app to run)
 npm install
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Note:** If you skip Step 3 (npm install), the app will show a white screen. This is the most common issue users face.
+**Note:** Step 3 is essential - skipping `npm install` will result in a white screen when you try to run the app.
 
 **Edit a file directly in GitHub**
 
@@ -124,9 +124,17 @@ If you encounter a white screen:
 
 2. **Clear cache and reinstall:**
    ```sh
+   # Remove node_modules and lock file
    rm -rf node_modules package-lock.json
+   
+   # Clean install (recommended for consistent dependency resolution)
+   npm ci
+   
+   # Or use regular install
    npm install
    ```
+   
+   **Note:** Be careful with `rm -rf` commands. Ensure you're in the correct directory.
 
 3. **Check for errors in browser console** (F12 → Console tab)
 
