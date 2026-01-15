@@ -1,18 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, TrendingUp, Minus, Target, Clock, Zap } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus, Target, Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 
 interface ProgressTrackerProps {
   totalTimeToday: number;
-  breaksToday: number;
   streak: number;
   dailyGoal: number;
   weeklyProgress: number[];
 }
 
-export const ProgressTracker = ({ totalTimeToday, breaksToday, streak, dailyGoal, weeklyProgress }: ProgressTrackerProps) => {
+export const ProgressTracker = ({ totalTimeToday, streak, dailyGoal, weeklyProgress }: ProgressTrackerProps) => {
   const dailyUsageMinutes = Math.round(totalTimeToday / 60);
   const progressPercentage = Math.min((dailyUsageMinutes / dailyGoal) * 100, 100);
   const isOnTrack = dailyUsageMinutes <= dailyGoal;
@@ -96,12 +95,6 @@ export const ProgressTracker = ({ totalTimeToday, breaksToday, streak, dailyGoal
               <Clock className="w-4 h-4" />
               <span>{remainingTime}min remaining</span>
             </div>
-            {breaksToday > 0 && (
-              <div className="flex items-center gap-1 text-green-500">
-                <Zap className="w-4 h-4" />
-                <span>{breaksToday} breaks taken</span>
-              </div>
-            )}
           </div>
         </div>
 
