@@ -5,9 +5,7 @@ import { AppUsageBreakdown } from "@/components/AppUsageBreakdown";
 import { Loader2 } from "lucide-react";
 
 export const Dashboard = () => {
-  const { stats, loading, dailyBreakGoal } = useStats();
-
-
+  const { stats, loading } = useStats();
 
   if (loading) {
     return (

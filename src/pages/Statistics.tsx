@@ -94,7 +94,6 @@ export const Statistics = () => {
 
       <ProgressTracker
         totalTimeToday={stats.totalTimeToday}
-        breaksToday={stats.breaksToday}
         streak={stats.streak}
         dailyGoal={dailyGoal}
         weeklyProgress={stats.weeklyProgress}
