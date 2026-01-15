@@ -15,25 +15,29 @@ import NotFound from "./pages/NotFound";
 import { LocalStorage } from "@/services/storage";
 
 const App = () => {
+  const isDev = import.meta.env.DEV;
+  
   const [hasName, setHasName] = useState(() => {
     const settings = LocalStorage.getSettings();
-    console.log('Screen Coach: Initial settings', settings);
+    if (isDev) console.log('Screen Coach: Initial settings', settings);
     return !!settings.name;
   });
 
   useEffect(() => {
-    console.log('Screen Coach: App mounted, hasName:', hasName);
+    if (isDev) console.log('Screen Coach: App mounted, hasName:', hasName);
     
     const handleLogin = () => {
-      console.log('Screen Coach: User login event received');
+      if (isDev) console.log('Screen Coach: User login event received');
       setHasName(true);
     };
 
     window.addEventListener('user-login', handleLogin);
     return () => window.removeEventListener('user-login', handleLogin);
-  }, []);
+  }, [isDev, hasName]);
 
-  console.log('Screen Coach: Rendering app with hasName:', hasName);
+  if (isDev) {
+    console.log('Screen Coach: Rendering app with hasName:', hasName);
+  }
 
   return (
     <TooltipProvider>

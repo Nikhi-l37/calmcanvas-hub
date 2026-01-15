@@ -4,11 +4,15 @@ import './index.css'
 import { registerServiceWorker, setupPWAUpdateHandler } from './utils/pwa'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
-console.log('Screen Coach: Initializing application...');
+const isDev = import.meta.env.DEV;
+
+if (isDev) {
+  console.log('Screen Coach: Initializing application...');
+}
 
 // Register service worker for PWA functionality
 registerServiceWorker().then(() => {
-  console.log('Screen Coach: Service worker registered');
+  if (isDev) console.log('Screen Coach: Service worker registered');
 }).catch((error) => {
   console.warn('Screen Coach: Service worker registration failed', error);
 });
@@ -21,7 +25,9 @@ if (!rootElement) {
   throw new Error('Root element not found');
 }
 
-console.log('Screen Coach: Mounting React app...');
+if (isDev) {
+  console.log('Screen Coach: Mounting React app...');
+}
 
 createRoot(rootElement).render(
   <ErrorBoundary>
@@ -29,4 +35,6 @@ createRoot(rootElement).render(
   </ErrorBoundary>
 );
 
-console.log('Screen Coach: React app mounted successfully');
+if (isDev) {
+  console.log('Screen Coach: React app mounted successfully');
+}
