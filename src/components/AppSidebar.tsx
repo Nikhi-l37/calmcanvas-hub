@@ -37,13 +37,8 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="space-y-1">
               <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                {name ? `Welcome, ${name}` : 'Screen Coach'}
+                Screen Tracker
               </h2>
-              {name && (
-                <p className="text-xs text-muted-foreground">
-                  Screen Coach
-                </p>
-              )}
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">calmcanvas-hub</string>
-    <string name="title_activity_main">calmcanvas-hub</string>
+    <string name="app_name">Screen Tracker</string>
+    <string name="title_activity_main">Screen Tracker</string>
     <string name="package_name">com.digitalwellbeing.app</string>
     <string name="custom_url_scheme">com.digitalwellbeing.app</string>
 </resources>

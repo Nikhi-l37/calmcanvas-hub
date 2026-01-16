@@ -11,13 +11,22 @@ if (isDev) {
 }
 
 // Register service worker for PWA functionality
-registerServiceWorker().then(() => {
-  if (isDev) console.log('Screen Coach: Service worker registered');
-}).catch((error) => {
-  console.warn('Screen Coach: Service worker registration failed', error);
-});
+// registerServiceWorker().then(() => {
+//   if (isDev) console.log('Screen Coach: Service worker registered');
+// }).catch((error) => {
+//   console.warn('Screen Coach: Service worker registration failed', error);
+// });
 
-setupPWAUpdateHandler();
+// setupPWAUpdateHandler();
+
+// Force unregister service workers to fix caching issues
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function (registrations) {
+    for (let registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

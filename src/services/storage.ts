@@ -47,7 +47,6 @@ export const LocalStorage = {
     init: () => {
         const storedVersion = localStorage.getItem(STORAGE_KEYS.VERSION);
         if (storedVersion !== CURRENT_VERSION) {
-            console.log('Storage version mismatch. Clearing all data for fresh start.');
             LocalStorage.clearAll();
             localStorage.setItem(STORAGE_KEYS.VERSION, CURRENT_VERSION);
         }

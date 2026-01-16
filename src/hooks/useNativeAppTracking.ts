@@ -45,12 +45,12 @@ export const useNativeAppTracking = () => {
       const day = String(now.getDate()).padStart(2, '0');
       const todayStr = `${year}-${month}-${day}`;
 
-      // Get start of day in local time
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      // Get start of day in local time (Add 1 second to strictly exclude yesterday)
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 1, 0);
 
       // 1. Get actual usage from Android for today
       const packageNames = trackedApps.map(app => app.packageName);
-      console.log('Syncing usage for packages:', packageNames);
+      console.log(`Syncing usage for packages since ${startOfDay.toLocaleString()}`);
 
       const androidStats = await getAppUsageStats(packageNames, startOfDay.getTime());
 

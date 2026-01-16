@@ -32,8 +32,22 @@ export const Dashboard = () => {
             {Math.floor(stats.totalTimeToday / 3600)}h {Math.floor((stats.totalTimeToday % 3600) / 60)}m
           </div>
           <p className="text-xs text-muted-foreground">
-            {stats.totalTimeToday > stats.totalTimeYesterday ? '+' : ''}
-            {Math.round(((stats.totalTimeToday - stats.totalTimeYesterday) / (stats.totalTimeYesterday || 1)) * 100)}% from yesterday
+            {(() => {
+              const diff = stats.totalTimeToday - stats.totalTimeYesterday;
+              const absDiff = Math.abs(diff);
+              const hours = Math.floor(absDiff / 3600);
+              const minutes = Math.floor((absDiff % 3600) / 60);
+
+              if (stats.totalTimeYesterday === 0) return "First day of tracking";
+              if (diff === 0) return "Same as yesterday";
+
+              const timeParts = [];
+              if (hours > 0) timeParts.push(`${hours}h`);
+              if (minutes > 0) timeParts.push(`${minutes}m`);
+              if (timeParts.length === 0) return "About the same as yesterday";
+
+              return `${timeParts.join(' ')} ${diff > 0 ? 'more' : 'less'} than yesterday`;
+            })()}
           </p>
         </Card>
 

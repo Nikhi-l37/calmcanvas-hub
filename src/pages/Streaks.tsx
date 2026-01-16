@@ -86,6 +86,22 @@ export const Streaks = () => {
         <StreakCalendar />
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-6"
+      >
+        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <span className="text-xl">ℹ️</span> How it works
+        </h3>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          Your streak increases every day you stay within your limits!
+          <br className="my-2" />
+          <span className="text-primary font-medium">Goal:</span> Use your tracked apps for <span className="text-primary font-bold">less than 1 hour</span> each day to keep your fire burning. 🔥
+        </p>
+      </motion.div>
+
 
     </div>
   );

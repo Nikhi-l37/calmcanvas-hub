@@ -39,7 +39,7 @@ export interface UserStats {
   achievements: Achievement[];
   weeklyProgress: number[];
   lastMotivationalMessage?: string;
-  goalsMet: boolean;
+
 }
 
 export interface Achievement {

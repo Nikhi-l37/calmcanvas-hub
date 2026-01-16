@@ -14,30 +14,39 @@ import { Welcome } from "./pages/Welcome";
 import NotFound from "./pages/NotFound";
 import { LocalStorage } from "@/services/storage";
 
+import { SplashScreen } from "@/components/SplashScreen";
+
 const App = () => {
   const isDev = import.meta.env.DEV;
-  
-  const [hasName, setHasName] = useState(() => {
-    const settings = LocalStorage.getSettings();
-    if (isDev) console.log('Screen Coach: Initial settings', settings);
-    return !!settings.name;
-  });
+
+  const [hasName, setHasName] = useState(() => !!LocalStorage.getSettings().name);
+  const [showSplash, setShowSplash] = useState(true);
+  const [userName, setUserName] = useState(() => LocalStorage.getSettings().name || '');
 
   useEffect(() => {
-    if (isDev) console.log('Screen Coach: App mounted, hasName:', hasName);
-    
     const handleLogin = () => {
-      if (isDev) console.log('Screen Coach: User login event received');
       setHasName(true);
+      setUserName(LocalStorage.getSettings().name || '');
     };
-
     window.addEventListener('user-login', handleLogin);
     return () => window.removeEventListener('user-login', handleLogin);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isDev) {
-    console.log('Screen Coach: Rendering app with hasName:', hasName);
+  // Handle Splash Screen Timer
+  useEffect(() => {
+    if (hasName) {
+      // Show splash for 2.5 seconds if user is logged in
+      const timer = setTimeout(() => setShowSplash(false), 2500);
+      return () => clearTimeout(timer);
+    } else {
+      // If no name (first time), skip splash and go to Welcome
+      setShowSplash(false);
+    }
+  }, [hasName]);
+
+  // Show Splash only if we have a name and the timer is still running
+  if (showSplash && hasName) {
+    return <SplashScreen name={userName} />;
   }
 
   return (
