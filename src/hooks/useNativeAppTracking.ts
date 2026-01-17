@@ -2,11 +2,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAppUsageTracking } from './useAppUsageTracking';
 import { LocalStorage, TrackedApp, DailyUsage } from '@/services/storage';
 import { useTimer } from '@/contexts/TimerContext';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 export const useNativeAppTracking = () => {
   const { getAppUsageStats, isSupported } = useAppUsageTracking();
   const [trackedApps, setTrackedApps] = useState<TrackedApp[]>([]);
   const [isTracking, setIsTracking] = useState(false);
+
+  // Track which apps we have already warned about today to avoid spamming
+  const [warnedApps, setWarnedApps] = useState<Record<string, boolean>>({});
 
   const { triggerNativeBreak } = useTimer();
   const [continuousUsage, setContinuousUsage] = useState<Record<string, number>>({});
@@ -73,6 +77,53 @@ export const useNativeAppTracking = () => {
             seconds = Math.max(0, seconds - app.usageOffset);
           }
 
+          // --- SELF-HEALING LOGIC ---
+          // If usage is greater than time elapsed today, it includes yesterday's data (Weekly/Cumulative bucket).
+          // We treat the excess as a "healing offset" (baseline) for today.
+
+          const msSinceMidnight = now.getTime() - startOfDay.getTime();
+          const secondsSinceMidnight = msSinceMidnight / 1000;
+          const SANITY_BUFFER = 60 * 15; // 15 mins buffer
+
+          if (seconds > (secondsSinceMidnight + SANITY_BUFFER)) {
+            console.warn(`[Sanity] ${app.name} usage (${seconds}s) > elapsed time (${secondsSinceMidnight}s). Auto-correcting.`);
+
+            // Check if we already have a dynamic offset for today
+            // We can reuse the existing usageOffset structure or create a temporary one.
+            // For simplicity/robustness, let's update the app's persistent offset.
+
+            // Calculate how much "extra" time there is. 
+            // Ideally we want usage to be 0 if this is the first check, 
+            // but if they legit used it for 10 mins, we can't know perfectly.
+            // Best bet: Set offset such that current usage becomes 0 (or close to 0).
+            // But we only want to do this ONCE per day/anomaly.
+
+            // Since we can't update 'app' prop easily from here without triggering re-renders loop,
+            // we will calculate a local adjustment. 
+
+            // Better Approach: Use LocalStorage to store daily fixes.
+            const healingKey = `healing_${todayStr}_${app.packageName}`;
+            const storedHealing = localStorage.getItem(healingKey);
+            let healingOffset = storedHealing ? parseInt(storedHealing) : 0;
+
+            if (!healingOffset) {
+              // First time detecting glitch today. Set offset = current raw value.
+              // This assumes the discrepancy > elapsed means we prefer to start from 0 than show 18 hours.
+              healingOffset = seconds;
+              localStorage.setItem(healingKey, healingOffset.toString());
+              console.log(`[Sanity] Created healing offset for ${app.name}: -${healingOffset}s`);
+            }
+
+            seconds = Math.max(0, seconds - healingOffset);
+          } else {
+            // If we have a healing offset, we still need to apply it!
+            const healingKey = `healing_${todayStr}_${app.packageName}`;
+            const storedHealing = localStorage.getItem(healingKey);
+            if (storedHealing) {
+              seconds = Math.max(0, seconds - parseInt(storedHealing));
+            }
+          }
+
           appsUsage[app.packageName] = seconds;
           totalTime += seconds;
 
@@ -93,20 +144,40 @@ export const useNativeAppTracking = () => {
               triggerNativeBreak(app.id);
               newContinuousUsage[app.packageName] = 0; // Reset after break
             }
-          } else {
-            // No usage in this poll interval, reset continuous usage?
-            // Actually, we should probably only reset if it's been idle for a while, 
-            // but for now, let's assume if delta is 0, they aren't using it.
-            // However, aggressive polling might return 0 delta if interval is small.
-            // Let's keep it simple: if delta is 0 for a few cycles, we might reset.
-            // For now, we WON'T reset on 0 delta to avoid resetting during brief pauses.
-            // We will rely on the user taking a break to reset it? 
-            // Or maybe we reset if they switch apps?
-            // Let's reset if delta is 0, implying they stopped using it.
-            if (delta === 0) {
-              // Optional: Reset if we want "continuous" to mean "without stopping"
-              // newContinuousUsage[app.packageName] = 0; 
-            }
+          }
+
+          // --- STREAK WARNING LOGIC ---
+          // 50 minutes = 3000 seconds. Limit is 60 minutes (3600 seconds).
+          const WARNING_THRESHOLD = 3000;
+
+          // Check if we passed the warning threshold AND haven't warned yet
+          if (seconds >= WARNING_THRESHOLD && seconds < 3600 && !warnedApps[app.packageName]) {
+            console.log(`Triggering Streak Warning for ${app.name}`);
+
+            // Send Notification
+            LocalNotifications.schedule({
+              notifications: [{
+                title: `⚠️ Steak Risk: ${app.name}`,
+                body: `You've used ${app.name} for 50m. Only 10m left before you lose your streak!`,
+                id: Math.floor(Math.random() * 100000),
+                schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
+                smallIcon: 'ic_stat_flame', // fallback icon
+                actionTypeId: "",
+                extra: null
+              }]
+            }).catch(err => console.error("Failed to schedule notification", err));
+
+            // Mark as warned so we don't spam
+            setWarnedApps(prev => ({ ...prev, [app.packageName]: true }));
+          }
+          // Reset warning flag if usage drops (e.g. new day reset)
+          if (seconds < 100) {
+            // If usage is basically 0, reset the warning for tomorrow
+            setWarnedApps(prev => {
+              const copy = { ...prev };
+              delete copy[app.packageName];
+              return copy;
+            });
           }
         }
       }

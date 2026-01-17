@@ -10,7 +10,7 @@ export const SplashScreen = ({ name }: { name: string }) => {
                 className="text-center space-y-4"
             >
                 <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    Welcome, {name}
+                    Welcome {name}
                 </h1>
                 <p className="text-muted-foreground">
                     Setting up your dashboard...
