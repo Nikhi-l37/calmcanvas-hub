@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { LocalStorage } from '@/services/storage';
 
 interface DayCompletion {
@@ -60,8 +60,7 @@ export const StreakCalendar = () => {
     const startingDayOfWeek = firstDay.getDay();
 
     const days: DayCompletion[] = [];
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = getLocalDateString();
 
     // Add empty days for alignment
     for (let i = 0; i < startingDayOfWeek; i++) {

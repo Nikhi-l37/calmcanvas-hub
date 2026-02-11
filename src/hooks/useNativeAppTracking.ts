@@ -3,6 +3,7 @@ import { useAppUsageTracking } from './useAppUsageTracking';
 import { LocalStorage, TrackedApp, DailyUsage } from '@/services/storage';
 import { useTimer } from '@/contexts/TimerContext';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { getLocalDateString } from '@/lib/utils';
 
 export const useNativeAppTracking = () => {
   const { getAppUsageStats, isSupported } = useAppUsageTracking();
@@ -43,11 +44,7 @@ export const useNativeAppTracking = () => {
       const settings = LocalStorage.getSettings();
       const breakFrequencySeconds = (settings.breakFrequency || 15) * 60; // Default 15 mins
 
-      // Get local date string YYYY-MM-DD
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
+      const todayStr = getLocalDateString(now);
 
       // Get start of day in local time (Add 1 second to strictly exclude yesterday)
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 1, 0);
