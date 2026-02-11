@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useEffect, useState } from 'react';
 import { LocalStorage } from '@/services/storage';
+import { getLocalDateString } from '@/lib/utils';
 
 interface AppSession {
   app_name: string;
@@ -16,11 +17,7 @@ export const AppUsageBreakdown = () => {
 
   useEffect(() => {
     const fetchAppUsage = () => {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
+      const todayStr = getLocalDateString();
 
       const dailyUsage = LocalStorage.getDailyUsage(todayStr);
 

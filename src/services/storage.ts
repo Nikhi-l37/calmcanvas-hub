@@ -1,3 +1,5 @@
+import { getLocalDateString } from '@/lib/utils';
+
 export interface TrackedApp {
     id: string;
     name: string;
@@ -132,18 +134,19 @@ export const LocalStorage = {
     },
 
     getStreak: (): number => {
-        // Calculate current streak from daily usage
-        const getLocalDateString = (date: Date) => {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-
         let streak = 0;
         const checkDate = new Date();
 
-        // Check backwards from today
+        // If today has no data yet, don't count it against the streak.
+        // Skip to yesterday so the streak isn't reset to 0 at the
+        // start of every new day before any usage is recorded.
+        const todayStr = getLocalDateString(checkDate);
+        const todayUsage = LocalStorage.getDailyUsage(todayStr);
+        if (!todayUsage) {
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+
+        // Check backwards from the starting date
         while (true) {
             const dateStr = getLocalDateString(checkDate);
             const usage = LocalStorage.getDailyUsage(dateStr);
@@ -179,8 +182,8 @@ export const LocalStorage = {
         try {
             // Prune daily usage
             const allUsage = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_USAGE) || '{}');
-            const now = new Date();
-            const cutoffDate = new Date(now.setDate(now.getDate() - daysToKeep));
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
             let usageChanged = false;
             Object.keys(allUsage).forEach(dateStr => {

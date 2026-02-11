@@ -12,6 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import { useTimer } from '@/contexts/TimerContext';
 import { LocalStorage, TrackedApp } from '@/services/storage';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { getLocalDateString } from '@/lib/utils';
 
 interface NativeUsageTracker {
   [packageName: string]: number;
@@ -121,11 +122,7 @@ export const MyApps = () => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         currentUsage = await getAppUsageStats(packageNames, startOfDay.getTime());
       }
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
+      const todayStr = getLocalDateString();
       selectedApps.forEach((app, index) => {
         const appStats = currentUsage[app.packageName];
         const currentSeconds = appStats ? Math.floor(appStats.totalTimeInForeground / 1000) : 0;

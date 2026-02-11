@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { LocalStorage } from '@/services/storage';
+import { getLocalDateString } from '@/lib/utils';
 
 interface ActiveSession {
   id: string;
@@ -44,7 +45,7 @@ export const useSessionTracking = (userId: string | undefined) => {
       }
 
       if (durationSeconds > 0) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const dailyUsage = LocalStorage.getDailyUsage(today) || {
           date: today,
           totalTime: 0,
@@ -63,7 +64,7 @@ export const useSessionTracking = (userId: string | undefined) => {
 
   const recordBreak = useCallback(async (durationSeconds: number, activityType?: string) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const breakItem = {
         id: Date.now().toString(),
         duration_seconds: durationSeconds,
